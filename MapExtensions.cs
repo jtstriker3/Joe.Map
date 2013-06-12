@@ -17,7 +17,6 @@ namespace Joe.Map
         public static IQueryable<TViewModel> MapDBView<TModel, TViewModel>(this IEnumerable<TModel> modelList) where TViewModel : class
         {
             //Expression<Func<Model, ViewModel>> expression = (Model m) => (ViewModel)Activator.CreateInstance<ViewModel>().LoadViewWithFocus(m);
-
             Expression<Func<TModel, TViewModel>> expression = (Expression<Func<TModel, TViewModel>>)ExpressionHelpers.BuildExpression(typeof(TModel), typeof(TViewModel), false);
 
 
