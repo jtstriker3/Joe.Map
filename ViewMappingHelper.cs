@@ -40,7 +40,8 @@ namespace Joe.Map
                             attr.ColumnPropertyName = GetModelPropertyName;
                     _attr = attr;
                 }
-
+                if (_attr != null)
+                    this.SetIsKey(_attr);
                 return _attr;
             }
 
@@ -122,6 +123,12 @@ namespace Joe.Map
                     return last;
 
             }
+        }
+
+        private void SetIsKey(ViewMappingAttribute viewMapping)
+        {
+            if (!viewMapping.Key)
+                viewMapping.Key = PropInfo.Name.ToLower() == "id";
         }
 
         private String _modelPropertyName = null;
