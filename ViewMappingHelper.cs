@@ -34,14 +34,17 @@ namespace Joe.Map
                         attr = (ViewMappingAttribute)caList.SingleOrDefault(ca => ((ViewMappingAttribute)ca).Type == Model.Name);
                     else if (caList.Count() == 0 && Model != null && GetModelPropertyName != null)
                         attr = new ViewMappingAttribute();
-
+                    else if (IsEntityKey() && Model == null)
+                        attr = new ViewMappingAttribute();
                     if (attr != null)
                         if (String.IsNullOrEmpty(attr.ColumnPropertyName) && GetModelPropertyName != null)
                             attr.ColumnPropertyName = GetModelPropertyName;
+
+                    if (attr != null)
+                        attr.Key = IsEntityKey();
                     _attr = attr;
                 }
-                if (_attr != null)
-                    this.SetIsKey(_attr);
+
                 return _attr;
             }
 
@@ -125,10 +128,9 @@ namespace Joe.Map
             }
         }
 
-        private void SetIsKey(ViewMappingAttribute viewMapping)
+        private Boolean IsEntityKey()
         {
-            if (!viewMapping.Key)
-                viewMapping.Key = PropInfo.Name.ToLower() == "id";
+            return PropInfo.Name.ToLower() == "id";
         }
 
         private String _modelPropertyName = null;
