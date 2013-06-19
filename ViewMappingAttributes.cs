@@ -56,6 +56,7 @@ namespace Joe.Map
         public ViewMappingAttribute()
         {
             CreateNew = true;
+            MaxDepth = 10;
         }
 
         public ViewMappingAttribute(String propertyName)
