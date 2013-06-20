@@ -107,6 +107,7 @@ public class ViewMappingAttribute : Attribute
 {
     public ViewMappingAttribute();
 
+    //This can also be set via the constructor
     public string ColumnPropertyName { get; set; }
     public bool CreateNew { get; set; }
     public string GroupBy { get; set; }
