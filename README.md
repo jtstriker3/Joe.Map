@@ -1,7 +1,7 @@
 Joe.Map
 =======
 
-What is Joe.Map? Joe.Map is quite simply object mapping software. It is similar in function to AutoMapper and Dozer. Joe.Map is attribute based ie you can set up your maps via attributes on your View Model/Data Transfer Object. A mapping would look something like this: `[ViewMapping(ColumnPropertyName = "Name")]`.
+What is Joe.Map? Joe.Map is quite simply object mapping software. It is similar in function to AutoMapper and Dozer. Joe.Map is attribute based ie you can set up your maps via attributes on your View Model/Data Transfer Object. A mapping would look something like this: `[ViewMapping("Name")]`.
 
 ###Why Map to View Models?
 
