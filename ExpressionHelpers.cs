@@ -78,39 +78,42 @@ namespace Joe.Map
             return right;
         }
 
-        internal static LambdaExpression BuildExpression(Type model, Type viewModel, Boolean linqToSql)
+        internal static LambdaExpression BuildExpression(Type model, Type viewModel, Boolean linqToSql, Object filters)
         {
             LambdaExpression expression;
-            if (CachedExpressions.ContainsKey(model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql))
-                expression =
-                    CachedExpressions[model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql];
+            if (filters == null)
+                if (CachedExpressions.ContainsKey(model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql))
+                    expression =
+                        CachedExpressions[model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql];
+                else
+                {
+                    expression = BuildExpression(model, viewModel, linqToSql, 0);
+                    CachedExpressions.Add(model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql,
+                                          expression);
+                }
             else
-            {
-                expression = BuildExpression(model, viewModel, linqToSql, 0);
-                CachedExpressions.Add(model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql,
-                                      expression);
-            }
+                expression = BuildExpression(model, viewModel, linqToSql, 0, filters);
 
             return expression;
         }
 
-        internal static LambdaExpression BuildExpression(Type model, Type viewModel, Boolean linqToSql, int depth)
+        internal static LambdaExpression BuildExpression(Type model, Type viewModel, Boolean linqToSql, int depth, Object filters)
         {
             var modelEx = Expression.Parameter(model, model.Name.ToLower());
             Expression total = null;
 
-            var block = BuildMemberBindings(model, viewModel, linqToSql, modelEx, depth);
+            var block = BuildMemberBindings(model, viewModel, linqToSql, modelEx, depth, filters);
             total = Expression.MemberInit(Expression.New(viewModel), block.ToArray());
 
             return Expression.Lambda(total, new[] { modelEx });
         }
 
-        public static LambdaExpression BuildExpression(Type model, Type viewModel)
+        public static LambdaExpression BuildExpression(Type model, Type viewModel, Object filters)
         {
-            return BuildExpression(model, viewModel, true);
+            return BuildExpression(model, viewModel, true, filters);
         }
 
-        internal static List<MemberBinding> BuildMemberBindings(Type model, Type viewModel, Boolean linqToSql, Expression right, int depth)
+        internal static List<MemberBinding> BuildMemberBindings(Type model, Type viewModel, Boolean linqToSql, Expression right, int depth, Object filters)
         {
             List<MemberBinding> block = new List<MemberBinding>();
             Expression viewEx = Expression.New(viewModel);
@@ -133,12 +136,12 @@ namespace Joe.Map
 
                             Type modelPropertyType = model;
                             var compareInfo = ReflectionHelper.GetEvalPropertyInfo(model, colPropHelper.SwitchProperty);
-                            Expression compareProperty = Parse(linqToSql, parameter, model, viewModel, compareInfo.PropertyType, new Queue<String>(colPropHelper.SwitchProperty.Split('-')), 0, hasTransformAttr: true);
+                            Expression compareProperty = Parse(linqToSql, parameter, model, viewModel, compareInfo.PropertyType, new Queue<String>(colPropHelper.SwitchProperty.Split('-')), 0, filters, hasTransformAttr: true);
                             Expression currentCondtion = null;
                             foreach (ColumnPropHelper.Case c in colPropHelper.Cases)
                             {
                                 propAttrHelper.ViewMapping.ColumnPropertyName = c.PropertyString;
-                                right = BuildRight(parameter, model, viewModel, linqToSql, propInfo, depth, propAttrHelper);
+                                right = BuildRight(parameter, model, viewModel, linqToSql, propInfo, depth, propAttrHelper, filters);
 
                                 Expression test = Expression.Equal(compareProperty, Expression.Constant(Convert.ChangeType(c.Constant, compareProperty.Type)));
 
@@ -151,7 +154,7 @@ namespace Joe.Map
                         }
                         else
                         {
-                            right = BuildRight(parameter, model, viewModel, linqToSql, propInfo, depth, propAttrHelper);
+                            right = BuildRight(parameter, model, viewModel, linqToSql, propInfo, depth, propAttrHelper, filters);
                         }
                         block.Add(Expression.Bind(propInfo, right));
 
@@ -171,13 +174,13 @@ namespace Joe.Map
             return block;
         }
 
-        internal static Expression BuildRight(Expression right, Type model, Type viewModel, Boolean linqToSql, PropertyInfo propInfo, int depth, ViewMappingHelper propAttrHelper)
+        internal static Expression BuildRight(Expression right, Type model, Type viewModel, Boolean linqToSql, PropertyInfo propInfo, int depth, ViewMappingHelper propAttrHelper, Object filters)
         {
 
             if (propAttrHelper.ViewMapping.MaxDepth == 0 || depth < propAttrHelper.ViewMapping.MaxDepth)
             {
                 var viewModelProperty = propInfo.PropertyType.ImplementsIEnumerable() ? propInfo.PropertyType.GetGenericArguments().Single() : propInfo.PropertyType;
-                right = ExpressionHelpers.ParseProperty(linqToSql, right, model, viewModelProperty, propAttrHelper, depth);
+                right = ExpressionHelpers.ParseProperty(linqToSql, right, model, viewModelProperty, propAttrHelper, depth, filters);
 
             }
             else
@@ -210,18 +213,19 @@ namespace Joe.Map
 
         }
 
-        public static Expression ParseProperty(Boolean linqToSql, Expression right, Type modelPropertyType, Type viewModelPropertyType, ViewMappingHelper propAttrHelper, int depth, Boolean returnEntityExpression = false)
+        public static Expression ParseProperty(Boolean linqToSql, Expression right, Type modelPropertyType, Type viewModelPropertyType, ViewMappingHelper propAttrHelper, int depth, Object filters, Boolean returnEntityExpression = false)
         {
             var enumerableQueue = new Queue<String>(propAttrHelper.ViewMapping.ColumnPropertyName.Split('-'));
             if (right == null)
                 right = Expression.Parameter(modelPropertyType, modelPropertyType.Name.ToLower());
 
-            right = Parse(linqToSql, right, modelPropertyType, viewModelPropertyType, propAttrHelper.PropInfo.PropertyType, enumerableQueue, depth, returnEntityExpression, hasTransformAttr: propAttrHelper.HasTransform, propAttrHelper: propAttrHelper);
+            var destinationPropertyType = propAttrHelper.PropInfo != null ? propAttrHelper.PropInfo.PropertyType : typeof(Object);
+            right = Parse(linqToSql, right, modelPropertyType, viewModelPropertyType, destinationPropertyType, enumerableQueue, depth, returnEntityExpression, hasTransformAttr: propAttrHelper.HasTransform, propAttrHelper: propAttrHelper);
 
             return right;
         }
 
-        internal static Expression Parse(Boolean linqToSql, Expression right, Type modelPropertyType, Type viewModelPropertyType, Type destinationPropertyType, Queue<String> evalQueue, int depth, Boolean returnEntityExpression = false, Boolean nested = false, Boolean hasTransformAttr = false, ViewMappingHelper propAttrHelper = null)
+        internal static Expression Parse(Boolean linqToSql, Expression right, Type modelPropertyType, Type viewModelPropertyType, Type destinationPropertyType, Queue<String> evalQueue, int depth, Object filters, Boolean returnEntityExpression = false, Boolean nested = false, Boolean hasTransformAttr = false, ViewMappingHelper propAttrHelper = null)
         {
             var evalString = evalQueue.Dequeue();
             var count = 0;
@@ -249,7 +253,7 @@ namespace Joe.Map
                     Expression nestExpression = null;
                     if (evalQueue.Count > 0)
                     {
-                        nestExpression = Parse(linqToSql, parameterExpression, genericPropertyType, viewModelPropertyType, destinationPropertyType, evalQueue, depth, returnEntityExpression, true, hasTransformAttr, propAttrHelper);
+                        nestExpression = Parse(linqToSql, parameterExpression, genericPropertyType, viewModelPropertyType, destinationPropertyType, evalQueue, depth, filters, returnEntityExpression, true, hasTransformAttr, propAttrHelper);
                         if (nestExpression.Type.ImplementsIEnumerable())
                         {
                             rightsTree.Add(right);
@@ -261,10 +265,12 @@ namespace Joe.Map
 
                             if (!nestExpression.Type.IsSimpleType() && !returnEntityExpression)
                             {
-                                var block = BuildMemberBindings(nestExpression.Type, viewModelPropertyType, linqToSql, nestExpression, depth + 1);
+                                var block = BuildMemberBindings(nestExpression.Type, viewModelPropertyType, linqToSql, nestExpression, depth + 1, filters);
                                 nestExpression = Expression.MemberInit(Expression.New(viewModelPropertyType), block.ToArray());
                                 outType = nestExpression.Type;
                             }
+                            if (propAttrHelper != null && propAttrHelper.HasLinqFunction && viewModelPropertyType.IsSimpleType())
+                                right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, filters);
                             rightsTree.Add(right);
                             right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
                         }
@@ -281,9 +287,11 @@ namespace Joe.Map
                         var outType = right.Type;
                         if (!viewModelPropertyType.IsSimpleType() && !returnEntityExpression)
                         {
-                            var block = BuildMemberBindings(genericPropertyType, viewModelPropertyType, linqToSql, parameterExpression, depth + 1);
+                            var block = BuildMemberBindings(genericPropertyType, viewModelPropertyType, linqToSql, parameterExpression, depth + 1, filters);
                             nestExpression = Expression.MemberInit(Expression.New(viewModelPropertyType), block.ToArray());
                             outType = nestExpression.Type;
+                            if (propAttrHelper != null && propAttrHelper.HasLinqFunction && viewModelPropertyType.IsSimpleType())
+                                right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, filters);
                             rightsTree.Add(right);
                             right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
                         }
@@ -293,11 +301,14 @@ namespace Joe.Map
                 else if (evalQueue.Count > 0 && (count == evalList.Count() - 1))
                 {
                     rightsTree.Add(right);
-                    right = Parse(linqToSql, right, modelPropertyType, viewModelPropertyType, destinationPropertyType, evalQueue, depth, returnEntityExpression, true, hasTransformAttr, propAttrHelper);
+                    right = Parse(linqToSql, right, modelPropertyType, viewModelPropertyType, destinationPropertyType, evalQueue, depth, filters, returnEntityExpression, true, hasTransformAttr, propAttrHelper);
                 }
-                else if (destinationPropertyType.IsClass && !typeof(string).IsAssignableFrom(destinationPropertyType) && (count == evalList.Count() - 1))
+                else if (destinationPropertyType.IsClass
+                    && !typeof(string).IsAssignableFrom(destinationPropertyType)
+                    && destinationPropertyType != typeof(Object)
+                    && (count == evalList.Count() - 1))
                 {
-                    var nestExpression = BuildMemberBindings(right.Type, destinationPropertyType, linqToSql, right, depth + 1);
+                    var nestExpression = BuildMemberBindings(right.Type, destinationPropertyType, linqToSql, right, depth + 1, filters);
                     rightsTree.Add(right);
                     right = Expression.MemberInit(Expression.New(destinationPropertyType), nestExpression);
                 }
@@ -337,7 +348,8 @@ namespace Joe.Map
             {
                 var viewModelProperty = right.Type.GetGenericArguments().Single();
 
-                right = FilterBuilder.BuildWhereExpressions(right, viewModelProperty, propAttrHelper.ViewMapping.Where, linqToSql);
+                if (!propAttrHelper.HasLinqFunction || !viewModelPropertyType.IsSimpleType())
+                    right = FilterBuilder.BuildWhereExpressions(right, viewModelProperty, propAttrHelper.ViewMapping.Where, linqToSql, filters);
                 right = BuildIncludeExpressions(right, viewModelProperty, modelPropertyType);
                 right = OrderBy.BuildOrderByExpressions(right, viewModelProperty);
                 right = BuildGroupByExpressions(right, viewModelProperty, propAttrHelper.ViewMapping.GroupBy, linqToSql);

@@ -14,6 +14,7 @@ namespace Joe.Map
         private Type ViewModel { get; set; }
         private Boolean LinqToSql { get; set; }
         ParameterExpression ParameterExpression { get; set; }
+        Object FilterValues { get; set; }
         private static class FilterOperators
         {
             public const String Equal = "=";
@@ -33,7 +34,7 @@ namespace Joe.Map
             public const String Or = "or";
         }
 
-        internal static Expression BuildWhereExpressions(Expression right, Type viewModel, String filterString, Boolean linqToSql)
+        internal static Expression BuildWhereExpressions(Expression right, Type viewModel, String filterString, Boolean linqToSql, Object filters = null)
         {
             List<ViewFilterAttribute> filterList = viewModel.GetCustomAttributes(typeof(ViewFilterAttribute), true).Union(
                 viewModel.GetInterfaces().SelectMany(interphase => interphase.GetCustomAttributes(typeof(ViewFilterAttribute), true))
@@ -43,11 +44,17 @@ namespace Joe.Map
                 right = Expression.Call(typeof(Queryable), "AsQueryable", new[] { viewModel }, right);
 
             if (filterString != null)
-                right = Expression.Call(typeof(Queryable), "Where", new[] { viewModel }, right, new FilterBuilder(filterString, viewModel, linqToSql).BuildWhereClause());
+            {
+                var filterExpression = new FilterBuilder(filterString, viewModel, linqToSql, filters).BuildWhereClause();
+                if (filterExpression != null)
+                    right = Expression.Call(typeof(Queryable), "Where", new[] { viewModel }, right, filterExpression);
+            }
 
             foreach (ViewFilterAttribute filter in filterList)
             {
-                right = Expression.Call(typeof(Queryable), "Where", new[] { viewModel }, right, new FilterBuilder(filter.Where, viewModel, linqToSql).BuildWhereClause());
+                var filterExpression = new FilterBuilder(filterString, viewModel, linqToSql, filters).BuildWhereClause();
+                if (filterExpression != null)
+                    right = Expression.Call(typeof(Queryable), "Where", new[] { viewModel }, right, filterExpression);
             }
             return right;
         }
@@ -63,18 +70,19 @@ namespace Joe.Map
 
             public class Condition
             {
-                public PropertyInfo Property { get; set; }
+                //public PropertyInfo Property { get; set; }
                 public Expression PropertyExpression { get; set; }
                 public String Operator { get; set; }
                 public String Constant { get; set; }
             }
         }
 
-        public FilterBuilder(String filterString, Type viewModel, Boolean linqToSql)
+        public FilterBuilder(String filterString, Type viewModel, Boolean linqToSql, Object filters)
         {
             this.ViewModel = viewModel;
             ParameterExpression = Expression.Parameter(this.ViewModel, this.ViewModel.Name);
             Operations = this.BuildOperations(filterString);
+            FilterValues = filters;
         }
 
         private IEnumerable<Operation> BuildOperations(String filterString)
@@ -90,10 +98,9 @@ namespace Joe.Map
                     {
                         opp.Operator = stringOperations[i++];
                     }
-                    Expression propEx = null;
                     Type outModel = ViewModel;
-                    opp.Filter.Property = ExpressionHelpers.ParseProperty(LinqToSql, ParameterExpression, ref propEx, ref  outModel, stringOperations[i++]);
-                    opp.Filter.PropertyExpression = propEx;
+                    ViewMappingHelper helper = new ViewMappingHelper(new ViewMappingAttribute(stringOperations[i++]));
+                    opp.Filter.PropertyExpression = ExpressionHelpers.ParseProperty(LinqToSql, ParameterExpression, ViewModel, typeof(Object), helper, 0, false);
                     opp.Filter.Operator = stringOperations[i++];
                     opp.Filter.Constant = stringOperations[i];
                     yield return opp;
@@ -103,29 +110,65 @@ namespace Joe.Map
             }
         }
 
+        private Boolean IsFilter(String propertyString)
+        {
+            return propertyString.StartsWith("$");
+        }
+
+        private Boolean IgnoreFilter(Operation.Condition cond)
+        {
+            return IsFilter(cond.Constant) && FilterValues == null;
+        }
+
         public LambdaExpression BuildWhereClause()
         {
             ParameterExpression = Expression.Parameter(ViewModel, ViewModel.Name);
             Expression previousExpression = null;
+            var validFilters = Operations.Where(opp => !IgnoreFilter(opp.Filter));
+            if (validFilters.Count() == 0)
+                return null;
             foreach (Operation opp in Operations)
             {
-                Expression ex = BuildFilterExpression(opp.Filter, ParameterExpression);
-                if (opp.Operator != null)
+                if (!IgnoreFilter(opp.Filter))
                 {
-                    switch (opp.Operator.ToLower())
+                    Expression ex = BuildFilterExpression(opp.Filter, ParameterExpression);
+                    if (opp.Operator != null)
                     {
-                        case OperationsOperators.And:
-                            ex = Expression.And(previousExpression, ex);
-                            break;
-                        case OperationsOperators.Or:
-                            ex = Expression.Or(previousExpression, ex);
-                            break;
+                        switch (opp.Operator.ToLower())
+                        {
+                            case OperationsOperators.And:
+                                ex = Expression.And(previousExpression, ex);
+                                break;
+                            case OperationsOperators.Or:
+                                ex = Expression.Or(previousExpression, ex);
+                                break;
+                        }
                     }
-                }
 
-                previousExpression = ex;
+
+                    previousExpression = ex;
+                }
             }
             return Expression.Lambda(previousExpression, new ParameterExpression[] { ParameterExpression });
+        }
+
+        private Expression GetFilterExpression(Operation.Condition cond)
+        {
+            if (IsFilter(cond.Constant) && FilterValues != null)
+            {
+                var filterProp = cond.Constant.Remove(0, 1);
+                ViewMappingHelper helper = new ViewMappingHelper(new ViewMappingAttribute(filterProp));
+                return Expression.Constant(
+                    Expression.Lambda(
+                    Expression.Block(
+                    ExpressionHelpers.ParseProperty(LinqToSql, Expression.Constant(FilterValues), ViewModel, cond.PropertyExpression.Type, helper, 0, false))).Compile().DynamicInvoke()
+                    );
+            }
+            else if (FilterValues == null)
+                throw new NullReferenceException("Filter Object cannot be null if the View Requires it");
+
+            return Expression.Constant(Convert.ChangeType(cond.Constant, cond.PropertyExpression.Type));
+
         }
 
         private Expression BuildFilterExpression(Operation.Condition cond, Expression parameterExpression)
@@ -138,14 +181,14 @@ namespace Joe.Map
                     switch (cond.Constant)
                     {
                         case FilterOperators.Null:
-                            ex = Expression.Equal(cond.PropertyExpression, Expression.Constant(null, cond.Property.PropertyType));
+                            ex = Expression.Equal(cond.PropertyExpression, Expression.Constant(null, cond.PropertyExpression.Type));
                             break;
                         case FilterOperators.False:
                         case FilterOperators.True:
                             ex = Expression.Equal(cond.PropertyExpression, Expression.Constant(Convert.ToBoolean(cond.Constant)));
                             break;
                         default:
-                            ex = Expression.Equal(cond.PropertyExpression, Expression.Constant(Convert.ChangeType(cond.Constant, cond.Property.PropertyType)));
+                            ex = Expression.Equal(cond.PropertyExpression, GetFilterExpression(cond));
                             break;
                     }
                     break;
@@ -153,31 +196,31 @@ namespace Joe.Map
                     switch (cond.Constant)
                     {
                         case FilterOperators.Null:
-                            ex = Expression.NotEqual(cond.PropertyExpression, Expression.Constant(null, cond.Property.PropertyType));
+                            ex = Expression.NotEqual(cond.PropertyExpression, Expression.Constant(null, cond.PropertyExpression.Type));
                             break;
                         case FilterOperators.False:
                         case FilterOperators.True:
                             ex = Expression.NotEqual(cond.PropertyExpression, Expression.Constant(Convert.ToBoolean(cond.Constant)));
                             break;
                         default:
-                            ex = Expression.NotEqual(cond.PropertyExpression, Expression.Constant(Convert.ChangeType(cond.Constant, cond.Property.PropertyType)));
+                            ex = Expression.NotEqual(cond.PropertyExpression, GetFilterExpression(cond));
                             break;
                     }
                     break;
                 case FilterOperators.GreaterThan:
-                    ex = Expression.GreaterThan(cond.PropertyExpression, Expression.Constant(Convert.ChangeType(cond.Constant, cond.Property.PropertyType)));
+                    ex = Expression.GreaterThan(cond.PropertyExpression, GetFilterExpression(cond));
                     break;
                 case FilterOperators.LessThan:
-                    ex = Expression.LessThan(cond.PropertyExpression, Expression.Constant(Convert.ChangeType(cond.Constant, cond.Property.PropertyType)));
+                    ex = Expression.LessThan(cond.PropertyExpression, GetFilterExpression(cond));
                     break;
                 case FilterOperators.GreaterThanEqualTo:
-                    ex = Expression.GreaterThanOrEqual(cond.PropertyExpression, Expression.Constant(Convert.ChangeType(cond.Constant, cond.Property.PropertyType)));
+                    ex = Expression.GreaterThanOrEqual(cond.PropertyExpression, GetFilterExpression(cond));
                     break;
                 case FilterOperators.LessThanEqualTo:
-                    ex = Expression.LessThanOrEqual(cond.PropertyExpression, Expression.Constant(Convert.ChangeType(cond.Constant, cond.Property.PropertyType)));
+                    ex = Expression.LessThanOrEqual(cond.PropertyExpression, GetFilterExpression(cond));
                     break;
                 case FilterOperators.Contains:
-                    ex = Expression.Call(cond.PropertyExpression, cond.Property.PropertyType.GetMethod("Contains"), Expression.Constant(Convert.ChangeType(cond.Constant, cond.Property.PropertyType)));
+                    ex = Expression.Call(cond.PropertyExpression, cond.PropertyExpression.Type.GetMethod("Contains"), GetFilterExpression(cond));
                     break;
 
 

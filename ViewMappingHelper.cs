@@ -20,6 +20,11 @@ namespace Joe.Map
             PropInfo = info;
         }
 
+        public ViewMappingHelper(ViewMappingAttribute attribute)
+        {
+            _attr = attribute;
+        }
+
         public ViewMappingAttribute ViewMapping
         {
             get
