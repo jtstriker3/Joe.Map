@@ -22,14 +22,14 @@ namespace Joe.Map.Test
 
             foreach (var person in people)
             {
-                Console.WriteLine(person.Name);
+                Console.WriteLine(person.Name + " Record Count: " + person.RecordSum);
             }
             Console.WriteLine("--No Filter--");
             people = context.People.Map<Person, PersonView>();
 
             foreach (var person in people)
             {
-                Console.WriteLine(person.Name);
+                Console.WriteLine(person.Name + " Record Count: " + person.RecordSum);
             }
 
             Console.ReadLine();

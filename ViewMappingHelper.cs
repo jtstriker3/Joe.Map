@@ -31,7 +31,7 @@ namespace Joe.Map
             {
                 if (_attr == null)
                 {
-                    var caList = this.PropInfo.GetCustomAttributes(false).Where(ca => ca is ViewMappingAttribute);
+                    var caList = this.PropInfo.GetCustomAttributes(true).Where(ca => ca is ViewMappingAttribute);
                     ViewMappingAttribute attr = null;
                     if (caList.Count() == 1)
                         attr = (ViewMappingAttribute)caList.SingleOrDefault();
@@ -46,7 +46,7 @@ namespace Joe.Map
                             attr.ColumnPropertyName = GetModelPropertyName;
 
                     if (attr != null)
-                        attr.Key = IsEntityKey();
+                        attr.Key = IsEntityKey() || attr.Key;
                     _attr = attr;
                 }
 

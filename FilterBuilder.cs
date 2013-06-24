@@ -161,10 +161,10 @@ namespace Joe.Map
                 return Expression.Constant(
                     Expression.Lambda(
                     Expression.Block(
-                    ExpressionHelpers.ParseProperty(LinqToSql, Expression.Constant(FilterValues), ViewModel, cond.PropertyExpression.Type, helper, 0, false))).Compile().DynamicInvoke()
+                    ExpressionHelpers.ParseProperty(LinqToSql, Expression.Constant(FilterValues), FilterValues.GetType(), cond.PropertyExpression.Type, helper, 0, FilterValues, false))).Compile().DynamicInvoke()
                     );
             }
-            else if (FilterValues == null)
+            else if (FilterValues == null && IsFilter(cond.Constant))
                 throw new NullReferenceException("Filter Object cannot be null if the View Requires it");
 
             return Expression.Constant(Convert.ChangeType(cond.Constant, cond.PropertyExpression.Type));

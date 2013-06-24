@@ -87,7 +87,7 @@ namespace Joe.Map
                         CachedExpressions[model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql];
                 else
                 {
-                    expression = BuildExpression(model, viewModel, linqToSql, 0);
+                    expression = BuildExpression(model, viewModel, linqToSql, 0, filters);
                     CachedExpressions.Add(model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql,
                                           expression);
                 }
@@ -220,7 +220,7 @@ namespace Joe.Map
                 right = Expression.Parameter(modelPropertyType, modelPropertyType.Name.ToLower());
 
             var destinationPropertyType = propAttrHelper.PropInfo != null ? propAttrHelper.PropInfo.PropertyType : typeof(Object);
-            right = Parse(linqToSql, right, modelPropertyType, viewModelPropertyType, destinationPropertyType, enumerableQueue, depth, returnEntityExpression, hasTransformAttr: propAttrHelper.HasTransform, propAttrHelper: propAttrHelper);
+            right = Parse(linqToSql, right, modelPropertyType, viewModelPropertyType, destinationPropertyType, enumerableQueue, depth, filters, returnEntityExpression, hasTransformAttr: propAttrHelper.HasTransform, propAttrHelper: propAttrHelper);
 
             return right;
         }

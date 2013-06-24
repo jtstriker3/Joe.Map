@@ -67,7 +67,6 @@ namespace Joe.Map
             return viewList.AsQueryable().FilterDBView();
         }
 
-
     }
 
 

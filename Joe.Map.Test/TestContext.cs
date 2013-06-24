@@ -10,6 +10,7 @@ namespace Joe.Map.Test
     public class TestContext : DbContext
     {
         public DbSet<Person> People { get; set; }
+        public DbSet<Record> Records { get; set; }
 
 
     }

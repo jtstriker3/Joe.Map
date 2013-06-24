@@ -12,6 +12,7 @@ namespace Joe.Map.Test
         public String Name { get; set; }
         public DateTime TimeEntered { get; set; }
         public DateTime TimeLeft { get; set; }
+        public virtual List<Record> Records { get; set; }
     }
 
     [ViewFilter(Where = "TimeEntered:>:$StartTime")]
@@ -22,6 +23,8 @@ namespace Joe.Map.Test
         public DateTime TimeEntered { get; set; }
         public DateTime TimeLeft { get; set; }
 
+        [ViewMapping("Records-Count", Where = "StartTime:>=:$StartTime", LinqFunction = "Sum")]
+        public int? RecordSum { get; set; }
         //Filter
         public DateTime StartTime { get; set; }
     }
