@@ -204,7 +204,7 @@ public class CommentFilter
      context.Comment.Map<Comment,CommentView>(commentFilter);
   }
 ```
-*Note* Dynamic Comments prevent the expression tree from being cached so it must be build everytime.
+*Note* Dynamic Comments prevent the expression tree from being cached so it must be build everytime.  
 *Note* If no filter object is passed in then the Dynamic filter will be ignored.
 
 **ToBoolean** - This Allows you to convert Flags into the database directly to a Boolean. The syntax for this will be TrueValue:FalseValue e.g. Y:N. When mapping back the mapper will translate the Boolean back to the String it corresponds too.
