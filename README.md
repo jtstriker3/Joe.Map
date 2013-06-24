@@ -176,6 +176,37 @@ public class CommentView
    public IEnumerable<CommentView> SubComments {get;set;}
 }
 ```
+
+**Where Continued** - You can also now add dyanmic filters. To use thise prefix your Comparison Value with $ and pass in an objec that contains the filter. It would look something like this.
+
+```
+
+public class CommentView
+{
+   [ViewMapping(Key = true)]
+   public int ID {get;set;}
+   //Not using View Mapping attr here because the property name are the same
+   public String Text{get;set;}
+   [ViewMapping(ColumnPropertyName = "Comments", MaxDepth = 5, Where="Deleted:=:$ShowDeleted")]
+   public IEnumerable<CommentView> SubComments {get;set;}
+}
+
+public class CommentFilter
+{
+   public Boolean ShowDeleted { get; set; }
+}
+
+  public void Run()
+  {
+     var commentFilter = new CommentFilter(){ShowDeleted = true};
+     
+     //The context here is assuemed to be whatever context you are using
+     context.Comment.Map<Comment,CommentView>(commentFilter);
+  }
+```
+*Note* Dynamic Comments prevent the expression tree from being cached so it must be build everytime.
+*Note* If no filter object is passed in then the Dynamic filter will be ignored.
+
 **ToBoolean** - This Allows you to convert Flags into the database directly to a Boolean. The syntax for this will be TrueValue:FalseValue e.g. Y:N. When mapping back the mapper will translate the Boolean back to the String it corresponds too.
 
 **LinqFunction** - Allows you to call several LINQ function on the last property such as Sum and Count
