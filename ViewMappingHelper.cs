@@ -31,12 +31,21 @@ namespace Joe.Map
             {
                 if (_attr == null)
                 {
-                    var caList = this.PropInfo.GetCustomAttributes(true).Where(ca => ca is ViewMappingAttribute);
+                    //Get All Valid Entries for This Possible View
+                    var caList = this.PropInfo.GetCustomAttributes(typeof(ViewMappingAttribute), true).Cast<ViewMappingAttribute>().Where(vm =>
+                        vm.Type != null
+                        && vm.Type.FullName == (Model != null ? Model.FullName : String.Empty));
+                    var defaultAttribute = this.PropInfo.GetCustomAttributes(typeof(ViewMappingAttribute), true).Cast<ViewMappingAttribute>().Where(vm =>
+                      vm.Type == null);
+
+                    if (caList.Count() > 1 || defaultAttribute.Count() > 1)
+                        throw new Exception("There can be only One attribute per Type and One default attribute.");
+
                     ViewMappingAttribute attr = null;
                     if (caList.Count() == 1)
                         attr = (ViewMappingAttribute)caList.SingleOrDefault();
-                    else if (caList.Count() > 1 && Model != null)
-                        attr = (ViewMappingAttribute)caList.SingleOrDefault(ca => ((ViewMappingAttribute)ca).Type == Model.Name);
+                    else if (defaultAttribute.Count() == 1)
+                        attr = defaultAttribute.Single();
                     else if (caList.Count() == 0 && Model != null && GetModelPropertyName != null)
                         attr = new ViewMappingAttribute();
                     else if (IsEntityKey() && Model == null)

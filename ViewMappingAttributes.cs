@@ -31,7 +31,7 @@ namespace Joe.Map
         /// <summary>
         /// Use if you have multiple Model Mappings for a single view
         /// </summary>
-        public String Type { get; set; }
+        public Type Type { get; set; }
         public String Where { get; set; }
         /// <summary>
         /// Set to true if you are using Code First and do not have a view representing the Many To Many relationship table.
