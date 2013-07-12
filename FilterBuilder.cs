@@ -83,6 +83,7 @@ namespace Joe.Map
             ParameterExpression = Expression.Parameter(this.ViewModel, this.ViewModel.Name);
             Operations = this.BuildOperations(filterString);
             FilterValues = filters;
+            LinqToSql = linqToSql;
         }
 
         private IEnumerable<Operation> BuildOperations(String filterString)
@@ -100,7 +101,7 @@ namespace Joe.Map
                     }
                     Type outModel = ViewModel;
                     ViewMappingHelper helper = new ViewMappingHelper(new ViewMappingAttribute(stringOperations[i++]));
-                    opp.Filter.PropertyExpression = ExpressionHelpers.ParseProperty(LinqToSql, ParameterExpression, ViewModel, typeof(Object), helper, 0, false);
+                    opp.Filter.PropertyExpression = ExpressionHelpers.ParseProperty(LinqToSql, ParameterExpression, ViewModel, typeof(Object), helper, 0, null, true);
                     opp.Filter.Operator = stringOperations[i++];
                     opp.Filter.Constant = stringOperations[i];
                     yield return opp;
@@ -161,13 +162,24 @@ namespace Joe.Map
                 return Expression.Constant(
                     Expression.Lambda(
                     Expression.Block(
-                    ExpressionHelpers.ParseProperty(LinqToSql, Expression.Constant(FilterValues), FilterValues.GetType(), cond.PropertyExpression.Type, helper, 0, FilterValues, false))).Compile().DynamicInvoke()
+                    ExpressionHelpers.ParseProperty(LinqToSql, Expression.Constant(FilterValues), FilterValues.GetType(), cond.PropertyExpression.Type, helper, 0, FilterValues, true))).Compile().DynamicInvoke()
                     );
             }
             else if (FilterValues == null && IsFilter(cond.Constant))
                 throw new NullReferenceException("Filter Object cannot be null if the View Requires it");
 
-            return Expression.Constant(Convert.ChangeType(cond.Constant, cond.PropertyExpression.Type));
+            Type parameterType;
+            if (cond.Operator == FilterOperators.Contains)
+            {
+                if (cond.PropertyExpression.Type == typeof(String))
+                    parameterType = cond.PropertyExpression.Type;
+                else
+                    parameterType = cond.PropertyExpression.Type.GetGenericArguments().Single();
+            }
+            else
+                parameterType = cond.PropertyExpression.Type;
+
+            return Expression.Constant(Convert.ChangeType(cond.Constant, parameterType));
 
         }
 
@@ -220,10 +232,14 @@ namespace Joe.Map
                     ex = Expression.LessThanOrEqual(cond.PropertyExpression, GetFilterExpression(cond));
                     break;
                 case FilterOperators.Contains:
-                    ex = Expression.Call(cond.PropertyExpression, cond.PropertyExpression.Type.GetMethod("Contains"), GetFilterExpression(cond));
+                    if (cond.PropertyExpression.Type == typeof(String))
+                        ex = Expression.Call(cond.PropertyExpression, cond.PropertyExpression.Type.GetMethod("Contains"), GetFilterExpression(cond));
+                    else
+                    {
+                        var method = typeof(Enumerable).GetMethods().Single(meth => meth.Name == "Contains" && meth.GetParameters().Count() == 2).MakeGenericMethod(cond.PropertyExpression.Type.GetGenericArguments().Single());
+                        ex = Expression.Call(method, cond.PropertyExpression, GetFilterExpression(cond));
+                    }
                     break;
-
-
             }
 
             return ex;

@@ -11,14 +11,15 @@ namespace Joe.Map.Test
         static void Main(string[] args)
         {
             FilterTest();
+            //NullableFkTest();
         }
 
         public static void FilterTest()
         {
-            var filter = new PersonView() { StartTime = DateTime.Now.AddDays(-19) };
+            var filter = new PersonView() { StartTime = DateTime.Now.AddDays(-30) };
             var context = new TestContext();
 
-            var people = context.People.Map<Person, PersonView>(filter);
+            var people = context.People.Map<Person, PersonView>(filter).Filter("Records-Count:Contains:11");
 
             foreach (var person in people)
             {
@@ -34,5 +35,14 @@ namespace Joe.Map.Test
 
             Console.ReadLine();
         }
+
+        //public static void NullableFkTest()
+        //{
+        //    var context = new TestContext();
+        //    var records = context.Records.Map<Record, RecordView>().Filter("Person.Name:Contains:Brice");
+
+        //    foreach (var record in records)
+        //        Console.WriteLine(record.Person != null ? record.Person.Name : "No Person");
+        //}
     }
 }

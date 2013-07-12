@@ -12,6 +12,9 @@ namespace Joe.Map.Test
         public DbSet<Person> People { get; set; }
         public DbSet<Record> Records { get; set; }
 
-
+        public TestContext()
+        {
+            Database.SetInitializer<TestContext>(new DropCreateDatabaseIfModelChanges<TestContext>());
+        }
     }
 }

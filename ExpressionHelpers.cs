@@ -13,6 +13,8 @@ namespace Joe.Map
 {
     public static class ExpressionHelpers
     {
+        private const String MaxDepthErrorMessage = "You have hit the default max depth of 10. If you have unintentionally created a recursive view then please correct this. If this is a valid mapping that truly goes 10 levels deep then Set the MaxDepth property of the ViewMapping Attribute to the depth you need.  If this is ture recursive view i.e. some sore of Tree structure set the Max Depth to a depth that you business rules require. True Recursive Views i.e. objects that have a instance of themselves cannot be executed as an Entity Query and must be an Object Query.";
+        internal const int MaxDepthDefault = 10;
         internal static readonly Dictionary<String, LambdaExpression> CachedExpressions = new Dictionary<String, LambdaExpression>();
 
         public static IQueryable<TViewModel> BuildIncludeExpressions<TViewModel>(this IQueryable<TViewModel> query, Type model) where TViewModel : class
@@ -156,7 +158,8 @@ namespace Joe.Map
                         {
                             right = BuildRight(parameter, model, viewModel, linqToSql, propInfo, depth, propAttrHelper, filters);
                         }
-                        block.Add(Expression.Bind(propInfo, right));
+                        if (right != null)
+                            block.Add(Expression.Bind(propInfo, right));
 
                     }
                     catch (Exception ex)
@@ -176,8 +179,9 @@ namespace Joe.Map
 
         internal static Expression BuildRight(Expression right, Type model, Type viewModel, Boolean linqToSql, PropertyInfo propInfo, int depth, ViewMappingHelper propAttrHelper, Object filters)
         {
-
-            if (propAttrHelper.ViewMapping.MaxDepth == 0 || depth < propAttrHelper.ViewMapping.MaxDepth)
+            if (depth == MaxDepthDefault)
+                throw new Exception(MaxDepthErrorMessage);
+            else if (propAttrHelper.ViewMapping.MaxDepth == 0 || depth < propAttrHelper.ViewMapping.MaxDepth || propInfo.PropertyType.IsSimpleType())
             {
                 var viewModelProperty = propInfo.PropertyType.ImplementsIEnumerable() ? propInfo.PropertyType.GetGenericArguments().Single() : propInfo.PropertyType;
                 right = ExpressionHelpers.ParseProperty(linqToSql, right, model, viewModelProperty, propAttrHelper, depth, filters);
@@ -185,10 +189,6 @@ namespace Joe.Map
             }
             else
                 right = Expression.TypeAs(Expression.Constant(null), propInfo.PropertyType);
-
-
-
-
 
             return right;
         }
@@ -383,6 +383,8 @@ namespace Joe.Map
                                     nullExpression = Expression.Default(modelPropertyType);
                                 }
                             }
+                            else if (returnEntityExpression)
+                                nullExpression = Expression.Default(right.Type);
                             else
                                 nullExpression = Expression.Default(destinationPropertyType);
                             try

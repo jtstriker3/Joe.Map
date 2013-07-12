@@ -22,7 +22,7 @@ namespace Joe.Map.Test.Migrations
             );
 
             context.Records.AddOrUpdate(
-             r => r.Count + r.PersonID,
+                r => r.ID,
              new Record { Count = 10, StartTime = DateTime.Now.AddDays(-20), PersonID = 1 },
              new Record { Count = 15, StartTime = DateTime.Now.AddDays(-15), PersonID = 1 },
              new Record { Count = 20, StartTime = DateTime.Now.AddDays(-10), PersonID = 1 },

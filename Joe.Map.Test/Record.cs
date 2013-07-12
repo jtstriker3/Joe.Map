@@ -13,4 +13,13 @@ namespace Joe.Map.Test
         public int PersonID { get; set; }
         public virtual Person Person { get; set; }
     }
+
+    public class RecordView
+    {
+        public int ID { get; set; }
+        public int Count { get; set; }
+        public DateTime StartTime { get; set; }
+        public int PersonID { get; set; }
+        //public virtual PersonView Person { get; set; }
+    }
 }
