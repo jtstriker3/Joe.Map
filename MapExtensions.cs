@@ -6,7 +6,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Joe.Reflection;
 using System.Collections;
-using System.Data.Objects;
 using System.Data.Entity;
 
 namespace Joe.Map
@@ -59,6 +58,23 @@ namespace Joe.Map
         public static IQueryable<TViewModel> Map<TModel, TViewModel>(this IEnumerable<TModel> modelList, Object filters = null) where TViewModel : class
         {
             return MapDBView<TModel, TViewModel>(modelList, filters);
+        }
+
+        public static IQueryable Map(this IEnumerable modelList, Type viewModelType, Object filters = null)
+        {
+            if (modelList.GetType().IsGenericType)
+            {
+                var listTypeOf = modelList.GetType().GetGenericArguments().Single();
+                return modelList.Map(listTypeOf, viewModelType, filters);
+            }
+            throw new Exception("modelList must be of IEnumerable<T> to generateMapping try using \"Map(Type modelType, Type viewModelType)");
+        }
+
+        public static IQueryable Map(this IEnumerable modelList, Type modelType, Type viewModelType, Object filters = null)
+        {
+            var selectMappingExpression = ExpressionHelpers.BuildExpression(modelType, viewModelType, filters);
+            var selectExpression = Expression.Call(typeof(Enumerable), "Select", new Type[] { modelType, viewModelType }, Expression.Constant(modelList), selectMappingExpression);
+            return ((IEnumerable)Expression.Lambda(selectExpression).Compile().DynamicInvoke()).AsQueryable();
         }
         #endregion
 

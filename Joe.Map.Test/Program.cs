@@ -10,8 +10,9 @@ namespace Joe.Map.Test
     {
         static void Main(string[] args)
         {
-            FilterTest();
+            //FilterTest();
             //NullableFkTest();
+            NonGenericMappingTest();
         }
 
         public static void FilterTest()
@@ -36,6 +37,14 @@ namespace Joe.Map.Test
             Console.ReadLine();
         }
 
+        public static void NonGenericMappingTest()
+        {
+            var context = new TestContext();
+            var people = (IEnumerable<PersonView>)context.People.Map(typeof(PersonView));
+
+            foreach (var person in people)
+                Console.WriteLine(person.Name);
+        }
         //public static void NullableFkTest()
         //{
         //    var context = new TestContext();

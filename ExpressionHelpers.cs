@@ -41,7 +41,7 @@ namespace Joe.Map
                 //MemberExpression propertyEx = Expression.Property(viewParamEx, info);
                 //Expression propLamdaEx = Expression.Lambda(propertyEx, new ParameterExpression[] { viewParamEx });
                 right = Expression.Call(typeof(Queryable), "AsQueryable", new[] { viewModel }, right);
-                right = Expression.Call(typeof(DbExtensions), "Include", new Type[] { }, right, Expression.Constant(info.Name));
+                right = Expression.Call(typeof(QueryableExtensions), "Include", new Type[] { }, right, Expression.Constant(info.Name));
                 right = Expression.Convert(right, typeof(IEnumerable<>).MakeGenericType(viewModel));
             }
             return right;
