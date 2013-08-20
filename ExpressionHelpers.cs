@@ -538,7 +538,7 @@ namespace Joe.Map
                 var listGenericType = list.GetType().GetGenericArguments().Single();
                 if(listGenericType != model)
                 {
-                    list = (IEnumerable)Exression.Lambda(Expression.Call(Expression.Call(typeof(Enumerable), "Cast", new[] { model }, Expression.Constant(list)))).Complile().DynamicInvoke();
+                    list = (IEnumerable)Expression.Lambda(Expression.Call(typeof(Enumerable), "Cast", new[] { model }, Expression.Constant(list))).Compile().DynamicInvoke();
                 }
             }
 
