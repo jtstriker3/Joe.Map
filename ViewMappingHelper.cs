@@ -144,6 +144,8 @@ namespace Joe.Map
 
         private Boolean IsEntityKey()
         {
+            if (Model != null)
+                return PropInfo.Name.ToLower() == "id" || PropInfo.Name.ToLower() == Model.Name.ToLower() + "id";
             return PropInfo.Name.ToLower() == "id";
         }
 

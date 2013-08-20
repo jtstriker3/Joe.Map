@@ -482,14 +482,13 @@ namespace Joe.Map
 
         public static Object WhereVM(this IEnumerable list, Object viewModel)
         {
-            var objectlist = list.Cast<Object>().ToList();
             Type model;
-            if (objectlist.Count > 0)
-                model = objectlist[0].GetType();
+            if (list.GetType().IsGenericType)
+                model = list.GetType().GetGenericArguments().Single();
             else
-                return null;
+                throw new Exception("Must Be Generic List");
 
-            ParameterExpression modelEx = Expression.Parameter(typeof(object), model.Name.ToLower());
+            ParameterExpression modelEx = Expression.Parameter(model, model.Name.ToLower());
             Expression test = null;
             foreach (PropertyInfo propInfo in viewModel.GetType().GetProperties())
             {
@@ -507,7 +506,7 @@ namespace Joe.Map
                             PropertyInfo modelInfo = modelPropertyType.GetProperty(str);
 
                             if (right == null)
-                                right = Expression.Property(Expression.Convert(modelEx, model), modelInfo);
+                                right = Expression.Property(modelEx, modelInfo);
                             else
                             {
                                 right = right = Expression.Property(right, modelInfo);
@@ -526,8 +525,11 @@ namespace Joe.Map
             if (test == null)
                 throw new Exception("No Key Defined in View");
 
-            Expression<Func<Object, Boolean>> lambda = (Expression<Func<Object, Boolean>>)Expression.Lambda(test, new ParameterExpression[] { modelEx });
-            return list.Cast<Object>().AsQueryable().SingleOrDefault(lambda);
+            var filterExpression = Expression.Lambda(test, new ParameterExpression[] { modelEx });
+            var singleOrDefaultExpression = Expression.Call(typeof(Enumerable), "SingleOrDefault", new[] { model }, Expression.Constant(list), filterExpression);
+            var lamda = Expression.Lambda(singleOrDefaultExpression);
+
+            return lamda.Compile().DynamicInvoke();
         }
 
         public static Object WhereModel(this IEnumerable list, Object model)
