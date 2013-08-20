@@ -533,6 +533,15 @@ namespace Joe.Map
             if (test == null)
                 throw new Exception("No Key Defined in View");
 
+            if (list.GetType().IsGenericType)
+            {
+                var listGenericType = list.GetType().GetGenericArguments().Single();
+                if(listGenericType != model)
+                {
+                    list = (IEnumerable)Exression.Lambda(Expression.Call(Expression.Call(typeof(Enumerable), "Cast", new[] { model }, Expression.Constant(list)))).Complile().DynamicInvoke();
+                }
+            }
+
             var filterExpression = Expression.Lambda(test, new ParameterExpression[] { modelEx });
             var singleOrDefaultExpression = Expression.Call(typeof(Enumerable), "SingleOrDefault", new[] { model }, Expression.Constant(list), filterExpression);
             var lamda = Expression.Lambda(singleOrDefaultExpression);
