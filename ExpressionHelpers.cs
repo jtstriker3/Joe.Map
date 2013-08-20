@@ -490,10 +490,11 @@ namespace Joe.Map
             if (model == null && list.GetType().IsGenericType)
                 model = list.GetType().GetGenericArguments().Single();
 
-            if ((model == null || model == typeof(Object)) && list.Cast<Object>().Count() > 0)
-                model = list.Cast<Object>().First().GetType();
-            else
-                return null;
+            if ((model == null || model == typeof(Object)))
+                if (list.Cast<Object>().Count() > 0)
+                    model = list.Cast<Object>().First().GetType();
+                else
+                    return null;
 
             ParameterExpression modelEx = Expression.Parameter(model, model.Name.ToLower());
             Expression test = null;
