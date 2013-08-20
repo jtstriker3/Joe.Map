@@ -38,6 +38,12 @@ namespace Joe.Map
         /// </summary>
         public Boolean UseParentListForRelationships { get; set; }
         /// <summary>
+        /// Default true
+        /// Set to false to prevent a list from mapping back its Properties
+        /// List that use the Included convention will still add and remove the items from the list
+        /// </summary>
+        public Boolean MapBackListData { get; set; }
+        /// <summary>
         /// Use to Group the List By a Specific Property
         /// Remember to set your Property To a IEnumerable&lt;IGrouping&lt;TKey, TViewModel&gt;&gt;
         /// </summary>
@@ -57,6 +63,7 @@ namespace Joe.Map
         {
             CreateNew = true;
             MaxDepth = ExpressionHelpers.MaxDepthDefault;
+            MapBackListData = true;
         }
 
         public ViewMappingAttribute(String propertyName)
