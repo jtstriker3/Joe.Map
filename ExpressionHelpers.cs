@@ -482,11 +482,18 @@ namespace Joe.Map
 
         public static Object WhereVM(this IEnumerable list, Object viewModel)
         {
-            Type model;
-            if (list.GetType().IsGenericType)
+            return list.WhereVM(viewModel, null);
+        }
+
+        public static Object WhereVM(this IEnumerable list, Object viewModel, Type model = null)
+        {
+            if (model == null && list.GetType().IsGenericType)
                 model = list.GetType().GetGenericArguments().Single();
+
+            if ((model == null || model == typeof(Object)) && list.Cast<Object>().Count() > 0)
+                model = list.Cast<Object>().First().GetType();
             else
-                throw new Exception("Must Be Generic List");
+                return null;
 
             ParameterExpression modelEx = Expression.Parameter(model, model.Name.ToLower());
             Expression test = null;
