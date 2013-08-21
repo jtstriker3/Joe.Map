@@ -488,7 +488,7 @@ namespace Joe.Map
         public static Object WhereVM(this IEnumerable list, Object viewModel, Type model = null)
         {
             if (model == null && list.GetType().IsGenericType)
-                model = list.GetType().GetGenericArguments().Single();
+                model = list.GetType().GetGenericArguments().Last();
 
             if ((model == null || model == typeof(Object)))
                 if (list.Cast<Object>().Count() > 0)
@@ -535,7 +535,7 @@ namespace Joe.Map
 
             if (list.GetType().IsGenericType)
             {
-                var listGenericType = list.GetType().GetGenericArguments().Single();
+                var listGenericType = list.GetType().GetGenericArguments().Last();
                 if(listGenericType != model)
                 {
                     list = (IEnumerable)Expression.Lambda(Expression.Call(typeof(Enumerable), "Cast", new[] { model }, Expression.Constant(list))).Compile().DynamicInvoke();
