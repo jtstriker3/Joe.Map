@@ -23,8 +23,8 @@ namespace Joe.Map.Test
         public DateTime TimeEntered { get; set; }
         public DateTime TimeLeft { get; set; }
         public IEnumerable<RecordView> Records { get; set; }
-        [ViewMapping("Records-Count", Where = "StartTime:>=:$StartTime", LinqFunction = "Sum")]
-        public int? RecordSum { get; set; }
+        [ViewMapping("Records", Where = "StartTime:>=:$StartTime", LinqFunction = "Count")]
+        public int? RecordCount { get; set; }
         //Filter
         public DateTime StartTime { get; set; }
     }

@@ -10,9 +10,9 @@ namespace Joe.Map.Test
     {
         static void Main(string[] args)
         {
-            //FilterTest();
+            FilterTest();
             //NullableFkTest();
-            NonGenericMappingTest();
+           // NonGenericMappingTest();
         }
 
         public static void FilterTest()
@@ -24,14 +24,14 @@ namespace Joe.Map.Test
 
             foreach (var person in people)
             {
-                Console.WriteLine(person.Name + " Record Count: " + person.RecordSum);
+                Console.WriteLine(person.Name + " Record Count: " + person.RecordCount);
             }
             Console.WriteLine("--No Filter--");
             people = context.People.Map<Person, PersonView>();
 
             foreach (var person in people)
             {
-                Console.WriteLine(person.Name + " Record Count: " + person.RecordSum);
+                Console.WriteLine(person.Name + " Record Count: " + person.RecordCount);
             }
 
             Console.ReadLine();

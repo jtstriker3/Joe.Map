@@ -231,6 +231,7 @@ namespace Joe.Map
             var count = 0;
             var evalList = evalString.Split('.');
             var inExpression = right;
+            var hasSelect = false;
             List<Expression> rightsTree = new List<Expression>();
             //if (depth > 0 && !destinationPropertyType.ImplementsIEnumerable())
             //    rightsTree.Add(right);
@@ -258,6 +259,8 @@ namespace Joe.Map
                         {
                             rightsTree.Add(right);
                             right = SelectMany(genericPropertyType, nestExpression.Type.GetGenericArguments().First(), right, nestExpression, parameterExpression);
+
+                            hasSelect = true;
                         }
                         else
                         {
@@ -273,6 +276,8 @@ namespace Joe.Map
                                 right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, filters);
                             rightsTree.Add(right);
                             right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
+
+                            hasSelect = true;
                         }
                     }
                     else
@@ -294,6 +299,8 @@ namespace Joe.Map
                                 right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, filters);
                             rightsTree.Add(right);
                             right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
+
+                            hasSelect = true;
                         }
                     }
 
@@ -348,7 +355,13 @@ namespace Joe.Map
             {
                 var viewModelProperty = right.Type.GetGenericArguments().Single();
 
-                if (!propAttrHelper.HasLinqFunction || !viewModelPropertyType.IsSimpleType())
+                if (propAttrHelper.HasLinqFunction && !hasSelect)
+                {
+                    var outType = right.Type.GetGenericArguments().LastOrDefault();
+                    if (outType != null)
+                        right = FilterBuilder.BuildWhereExpressions(right, outType, propAttrHelper.ViewMapping.Where, linqToSql, filters);
+                }
+                else if (!viewModelProperty.IsSimpleType())
                     right = FilterBuilder.BuildWhereExpressions(right, viewModelProperty, propAttrHelper.ViewMapping.Where, linqToSql, filters);
                 right = BuildIncludeExpressions(right, viewModelProperty, modelPropertyType);
                 right = OrderBy.BuildOrderByExpressions(right, viewModelProperty);
@@ -536,7 +549,7 @@ namespace Joe.Map
             if (list.GetType().IsGenericType)
             {
                 var listGenericType = list.GetType().GetGenericArguments().Last();
-                if(listGenericType != model)
+                if (listGenericType != model)
                 {
                     list = (IEnumerable)Expression.Lambda(Expression.Call(typeof(Enumerable), "Cast", new[] { model }, Expression.Constant(list))).Compile().DynamicInvoke();
                 }
