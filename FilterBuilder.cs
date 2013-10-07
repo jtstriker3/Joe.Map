@@ -118,7 +118,19 @@ namespace Joe.Map
 
         private Boolean IgnoreFilter(Operation.Condition cond)
         {
-            return IsFilter(cond.Constant) && FilterValues == null;
+            if (IsFilter(cond.Constant))
+            {
+                if (FilterValues != null)
+                {
+                    var filterType = FilterValues.GetType();
+                    var useFilterInfo = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(filterType, cond.Constant.Remove(0, 1) + "Active");
+                    if (useFilterInfo != null)
+                        return !(Boolean)Joe.Reflection.ReflectionHelper.GetEvalProperty(FilterValues, cond.Constant.Remove(0, 1) + "Active");
+                }
+                else
+                    return true;
+            }
+            return false;
         }
 
         public LambdaExpression BuildWhereClause()
@@ -179,7 +191,21 @@ namespace Joe.Map
             else
                 parameterType = cond.PropertyExpression.Type;
 
-            return Expression.Constant(Convert.ChangeType(cond.Constant, parameterType));
+            Object constant;
+            if (typeof(Enum).IsAssignableFrom(parameterType))
+            {
+                var enumInt = 0;
+
+                if (int.TryParse(cond.Constant, out enumInt))
+                    constant = Enum.ToObject(parameterType, enumInt);
+                else
+                    constant = Enum.Parse(parameterType, cond.Constant);
+
+            }
+            else
+                constant = cond.Constant;
+
+            return Expression.Constant(Convert.ChangeType(constant, parameterType));
 
         }
 
