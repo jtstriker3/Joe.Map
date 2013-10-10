@@ -12,7 +12,7 @@ namespace Joe.Map.Test
         {
             FilterTest();
             //NullableFkTest();
-           // NonGenericMappingTest();
+            // NonGenericMappingTest();
         }
 
         public static void FilterTest()
@@ -24,14 +24,22 @@ namespace Joe.Map.Test
 
             foreach (var person in people)
             {
-                Console.WriteLine(person.Name + " Record Count: " + person.RecordCount);
+                Console.WriteLine(person.Name);
+                foreach (var record in person.GroupedRecords)
+                {
+                    Console.WriteLine("Sum Counts For Group: " + record.Sum(r => (int)r.Value));
+                }
             }
             Console.WriteLine("--No Filter--");
             people = context.People.Map<Person, PersonView>();
 
             foreach (var person in people)
             {
-                Console.WriteLine(person.Name + " Record Count: " + person.RecordCount);
+                Console.WriteLine(person.Name);
+                foreach (var record in person.GroupedRecords)
+                {
+                    Console.WriteLine("Sum Counts For Group: " + record.Sum(r => (int)r.Value));
+                }
             }
 
             Console.ReadLine();

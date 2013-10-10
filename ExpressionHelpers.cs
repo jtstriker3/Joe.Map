@@ -184,6 +184,8 @@ namespace Joe.Map
             else if (propAttrHelper.ViewMapping.MaxDepth == 0 || depth < propAttrHelper.ViewMapping.MaxDepth || propInfo.PropertyType.IsSimpleType())
             {
                 var viewModelProperty = propInfo.PropertyType.ImplementsIEnumerable() ? propInfo.PropertyType.GetGenericArguments().Single() : propInfo.PropertyType;
+                if (viewModelProperty.IsGenericType && typeof(IGrouping<,>).IsAssignableFrom(viewModelProperty.GetGenericTypeDefinition()))
+                    viewModelProperty = viewModelProperty.GetGenericArguments().Last();
                 right = ExpressionHelpers.ParseProperty(linqToSql, right, model, viewModelProperty, propAttrHelper, depth, filters);
 
             }

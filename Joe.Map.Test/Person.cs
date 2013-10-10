@@ -23,9 +23,17 @@ namespace Joe.Map.Test
         public DateTime TimeEntered { get; set; }
         public DateTime TimeLeft { get; set; }
         public IEnumerable<RecordView> Records { get; set; }
-        [ViewMapping("Records", Where = "StartTime:>=:$StartTime", LinqFunction = "Count")]
-        public int? RecordCount { get; set; }
+        [ViewMapping("Records", GroupBy = "Key")]
+        public IEnumerable<IGrouping<Object, RecordGroup>> GroupedRecords { get; set; }
         //Filter
         public DateTime StartTime { get; set; }
+    }
+
+    public class RecordGroup
+    {
+        [ViewMapping("StartTime.Month")]
+        public Object Key { get; set; }
+        [ViewMapping("Count")]
+        public Object Value { get; set; }
     }
 }
