@@ -211,6 +211,42 @@ public class CommentFilter
 
 **LinqFunction** - Allows you to call several LINQ function on the last property such as Sum and Count
 
+**MapFunction** - Allows you to create complex mapping that cannot be done through standard Mapping
+
+**MapFunctionType** - Specify A Type to get the Custom Expression if is null then the ViewModel type is used
+
+```
+
+public class Blog
+{
+   pubic int ID { get; set; }
+   pubic String Name { get; set; }
+   public virtual List<Comments> { get; set; }
+}
+
+public class BlogView
+{
+   pubic int ID { get; set; }
+   pubic String Name { get; set; }
+
+   [ViewMapping(MapFunction("HasMoreThanTenCommentsMap"), MapFunctionType = typeof(BlogViewMap))]
+   public Boolean HasMoreThanTenComments { get; set; }
+}
+
+public class BlogViewMap
+{
+
+   public static LambdaExpression HasMoreThanTenCommentsMap(Boolean database)
+   {
+       Expression<Function<Blog, Boolean>> exp = blog => blog.Comments.Count() > 10;
+       return exp;
+   }
+
+}
+
+
+```
+
 ###Automated Null Checks
 
 One of the most common errors in Object Oriented Programming is the dreaded Object Not Set To Instance of Object Error. While this will not get ride of all your null checks it will automatically do the checks for you when mapping. The produced expression would look something like this.
