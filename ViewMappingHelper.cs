@@ -101,6 +101,14 @@ namespace Joe.Map
             }
         }
 
+        public Boolean HasMapFunction
+        {
+            get
+            {
+                return !String.IsNullOrWhiteSpace(this.ViewMapping.MapFunction);
+            }
+        }
+
         public Type GetOfType()
         {
             return _attr.OfType;

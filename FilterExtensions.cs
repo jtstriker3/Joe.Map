@@ -28,7 +28,7 @@ namespace Joe.Map
         {
             if (filter != null)
             {
-                Expression<Func<TViewModel, Boolean>> filterEx = (Expression<Func<TViewModel, Boolean>>)new FilterBuilder(filter, typeof(TViewModel), true, filters).BuildWhereClause();
+                Expression<Func<TViewModel, Boolean>> filterEx = (Expression<Func<TViewModel, Boolean>>)new FilterBuilder(filter, typeof(TViewModel), true, filters).BuildWhereLambda();
                 if (filterEx != null)
                     viewList = viewList.Where(filterEx);
             }
@@ -47,7 +47,7 @@ namespace Joe.Map
                 ).Cast<ViewFilterAttribute>().ToList();
             foreach (ViewFilterAttribute viewFilter in filterList)
             {
-                Expression<Func<TViewModel, Boolean>> filterEx = (Expression<Func<TViewModel, Boolean>>)new FilterBuilder(viewFilter.Where, typeof(TViewModel), true, filters).BuildWhereClause();
+                Expression<Func<TViewModel, Boolean>> filterEx = (Expression<Func<TViewModel, Boolean>>)new FilterBuilder(viewFilter.Where, typeof(TViewModel), true, filters).BuildWhereLambda();
                 if (filterEx != null)
                     viewList = viewList.Where(filterEx);
             }

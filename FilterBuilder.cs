@@ -5,12 +5,13 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace Joe.Map
 {
-    class FilterBuilder
+    public class FilterBuilder
     {
-        private IEnumerable<Operation> Operations { get; set; }
+        private OperationGroup Operations { get; set; }
         private Type ViewModel { get; set; }
         private Boolean LinqToSql { get; set; }
         ParameterExpression ParameterExpression { get; set; }
@@ -45,21 +46,39 @@ namespace Joe.Map
 
             if (filterString != null)
             {
-                var filterExpression = new FilterBuilder(filterString, viewModel, linqToSql, filters).BuildWhereClause();
+                var filterExpression = new FilterBuilder(filterString, viewModel, linqToSql, filters).BuildWhereLambda();
                 if (filterExpression != null)
                     right = Expression.Call(typeof(Queryable), "Where", new[] { viewModel }, right, filterExpression);
             }
 
             foreach (ViewFilterAttribute filter in filterList)
             {
-                var filterExpression = new FilterBuilder(filterString, viewModel, linqToSql, filters).BuildWhereClause();
+                var filterExpression = new FilterBuilder(filter.Where, viewModel, linqToSql, filters).BuildWhereLambda();
                 if (filterExpression != null)
                     right = Expression.Call(typeof(Queryable), "Where", new[] { viewModel }, right, filterExpression);
             }
             return right;
         }
 
-        private class Operation
+        protected class OperationGroup
+        {
+            public OperationGroup()
+            {
+                Operations = new List<Operation>();
+                SubGroups = new List<OperationSubGroup>();
+            }
+
+
+            public List<Operation> Operations { get; set; }
+            public List<OperationSubGroup> SubGroups { get; set; }
+        }
+
+        protected class OperationSubGroup : OperationGroup
+        {
+            public String JoinOperator { get; set; }
+        }
+
+        protected class Operation
         {
             public Operation()
             {
@@ -79,11 +98,48 @@ namespace Joe.Map
 
         public FilterBuilder(String filterString, Type viewModel, Boolean linqToSql, Object filters)
         {
+            LinqToSql = linqToSql;
             this.ViewModel = viewModel;
             ParameterExpression = Expression.Parameter(this.ViewModel, this.ViewModel.Name);
-            Operations = this.BuildOperations(filterString);
+            //Operations = this.BuildOperations(filterString);
             FilterValues = filters;
-            LinqToSql = linqToSql;
+            Operations = this.BuildOperationGroups(filterString);
+        }
+
+        private OperationGroup BuildOperationGroups(String filter, OperationGroup startGroup = null)
+        {
+            startGroup = startGroup ?? new OperationGroup();
+
+            var regEx = new Regex(@":(and|or):\(([^\)]+)\)*");
+
+            var matches = regEx.Matches(filter);
+
+            filter = regEx.Replace(filter, String.Empty);
+
+            startGroup.Operations.AddRange(this.BuildOperations(filter));
+
+            foreach (Match group in matches)
+            {
+                var subGroup = new OperationSubGroup();
+                var matchString = group.ToString();
+
+                if (matchString.StartsWith(":and:"))
+                {
+                    subGroup.JoinOperator = OperationsOperators.And;
+                    matchString = matchString.Remove(0, 6);
+                    matchString = matchString.Remove(matchString.Length - 1);
+                }
+                else
+                {
+                    subGroup.JoinOperator = OperationsOperators.Or;
+                    matchString = matchString.Remove(0, 5);
+                    matchString = matchString.Remove(matchString.Length - 1);
+                }
+
+                startGroup.SubGroups.Add((OperationSubGroup)this.BuildOperationGroups(matchString, subGroup));
+            }
+
+            return startGroup;
         }
 
         private IEnumerable<Operation> BuildOperations(String filterString)
@@ -100,10 +156,12 @@ namespace Joe.Map
                         opp.Operator = stringOperations[i++];
                     }
                     Type outModel = ViewModel;
-                    ViewMappingHelper helper = new ViewMappingHelper(new ViewMappingAttribute(stringOperations[i++]));
+                    var propertyString = stringOperations[i++];
+                    ViewMappingHelper helper = new ViewMappingHelper(new ViewMappingAttribute(propertyString));
                     opp.Filter.PropertyExpression = ExpressionHelpers.ParseProperty(LinqToSql, ParameterExpression, ViewModel, typeof(Object), helper, 0, null, true);
                     opp.Filter.Operator = stringOperations[i++];
-                    opp.Filter.Constant = stringOperations[i];
+                    var constantString = stringOperations[i];
+                    opp.Filter.Constant = constantString;
                     yield return opp;
                 }
                 else
@@ -133,36 +191,54 @@ namespace Joe.Map
             return false;
         }
 
-        public LambdaExpression BuildWhereClause()
+        protected Expression BuildWhereClause(OperationGroup operationGroup)
         {
-            ParameterExpression = Expression.Parameter(ViewModel, ViewModel.Name);
             Expression previousExpression = null;
-            var validFilters = Operations.Where(opp => !IgnoreFilter(opp.Filter));
+            var validFilters = operationGroup.Operations.Where(opp => !IgnoreFilter(opp.Filter));
             if (validFilters.Count() == 0)
                 return null;
-            foreach (Operation opp in Operations)
+            foreach (Operation opp in validFilters)
             {
-                if (!IgnoreFilter(opp.Filter))
+                Expression ex = BuildFilterExpression(opp.Filter, ParameterExpression);
+                if (opp.Operator != null)
                 {
-                    Expression ex = BuildFilterExpression(opp.Filter, ParameterExpression);
-                    if (opp.Operator != null)
+                    switch (opp.Operator.ToLower())
                     {
-                        switch (opp.Operator.ToLower())
-                        {
-                            case OperationsOperators.And:
-                                ex = Expression.And(previousExpression, ex);
-                                break;
-                            case OperationsOperators.Or:
-                                ex = Expression.Or(previousExpression, ex);
-                                break;
-                        }
+                        case OperationsOperators.And:
+                            ex = Expression.And(previousExpression, ex);
+                            break;
+                        case OperationsOperators.Or:
+                            ex = Expression.Or(previousExpression, ex);
+                            break;
                     }
-
-
-                    previousExpression = ex;
                 }
+
+                previousExpression = ex;
             }
-            return Expression.Lambda(previousExpression, new ParameterExpression[] { ParameterExpression });
+
+            foreach (OperationSubGroup subGroup in operationGroup.SubGroups)
+            {
+
+                var subGroupExpression = this.BuildWhereClause(subGroup);
+                switch (subGroup.JoinOperator)
+                {
+                    case OperationsOperators.And:
+                        previousExpression = Expression.And(previousExpression, subGroupExpression);
+                        break;
+                    case OperationsOperators.Or:
+                        previousExpression = Expression.Or(previousExpression, subGroupExpression);
+                        break;
+                }
+
+            }
+
+            return previousExpression;
+        }
+
+        public LambdaExpression BuildWhereLambda()
+        {
+            var expression = this.BuildWhereClause(Operations);
+            return Expression.Lambda(expression, new ParameterExpression[] { ParameterExpression });
         }
 
         private Expression GetFilterExpression(Operation.Condition cond)

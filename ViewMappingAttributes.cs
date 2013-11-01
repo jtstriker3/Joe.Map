@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 
 namespace Joe.Map
@@ -58,6 +59,18 @@ namespace Joe.Map
         /// </summary>
         public String ToBoolean { get; set; }
         public Type OfType { get; set; }
+        /// <summary>
+        /// Specify Static Function that Contains Map Expression
+        /// Fuction Must take in a boolean that signifies if the query is against a Database
+        /// Must Return a LambdaExpression
+        /// return Expression<Function<Model, PropertyType>> p => p.Name + p.ID;
+        /// </summary>
+        public String MapFunction { get; set; }
+        /// <summary>
+        /// Optional Property to Specify Resource or Class To Find the MapFunction Method
+        /// If Not Specified ViewModel Property Type is Used i.e. Static Function contained within ViewModel
+        /// </summary>
+        public Type MapFunctionType { get; set; }
 
         public ViewMappingAttribute()
         {

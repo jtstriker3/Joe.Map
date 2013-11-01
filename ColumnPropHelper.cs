@@ -12,7 +12,7 @@ namespace Joe.Map
 
         public ColumnPropHelper(String columnProp)
         {
-            ColumnProperty = columnProp;
+            ColumnProperty = columnProp ?? String.Empty;
         }
 
         public Boolean IsSwitch
