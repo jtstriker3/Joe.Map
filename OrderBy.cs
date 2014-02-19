@@ -32,7 +32,7 @@ namespace Joe.Map
                 var type = typeof(Func<,>).MakeGenericType(viewModel, order.PropertyType);
                 MemberExpression propertyEx = Expression.Property(viewParamEx, order.Info);
                 Expression propLamdaEx = Expression.Lambda(propertyEx, new ParameterExpression[] { viewParamEx });
-                if (orderByFunction == "OrderBy")
+                if (orderByFunction == "OrderBy" || orderByFunction == "OrderByDescending")
                 {
                     right = Expression.Call(typeof(Queryable), "AsQueryable", new[] { viewModel }, right);
                 }

@@ -280,8 +280,10 @@ namespace Joe.Map
             }
             else
                 constant = cond.Constant;
-
-            return Expression.Constant(Convert.ChangeType(constant, parameterType));
+            if (parameterType.IsNullable() && parameterType.IsSimpleType() && parameterType.IsValueType)
+                return Expression.Constant(constant.ToString().ToNullable(parameterType), parameterType);
+            else
+                return Expression.Constant(Convert.ChangeType(constant, parameterType));
 
         }
 

@@ -13,6 +13,7 @@ namespace Joe.Map
         Type Model { get; set; }
         public PropertyInfo PropInfo { get; set; }
         private ViewMappingAttribute _attr = null;
+        private static IDictionary<String, String> _propInfoCache = new Dictionary<String, String>();
 
         public ViewMappingHelper(PropertyInfo info, Type model)
         {
@@ -158,12 +159,17 @@ namespace Joe.Map
         }
 
         private String _modelPropertyName = null;
+
         private String GetModelPropertyName
         {
             get
             {
                 if (_modelPropertyName == null && Model != null)
                 {
+                    var key = Model.FullName + PropInfo.Name;
+                    if (_propInfoCache.ContainsKey(key))
+                        return _propInfoCache[key];
+
                     if (Model.GetProperty(PropInfo.Name) != null)
                         _modelPropertyName = PropInfo.Name;
                     else
@@ -173,8 +179,9 @@ namespace Joe.Map
                             infoName = infoName.Insert(i, ".");
                             if (ReflectionHelper.TryGetEvalPropertyInfo(Model, infoName) != null)
                                 _modelPropertyName = infoName;
-
                         }
+
+                    _propInfoCache.Add(key, _modelPropertyName);
                 }
                 return _modelPropertyName;
             }

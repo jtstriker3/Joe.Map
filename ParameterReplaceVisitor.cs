@@ -27,7 +27,10 @@ namespace Joe.Map
 
             protected override Expression VisitParameter(ParameterExpression node)
             {
-                return _parameterExpression;
+                if (node.Type == _parameterExpression.Type)
+                    return _parameterExpression;
+                else
+                    return base.VisitParameter(node);
             }
         }
     }

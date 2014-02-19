@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data.Entity;
 using System.Linq;
 using System.Linq.Expressions;
@@ -249,7 +250,7 @@ namespace Joe.Map
 
         public static Expression ParseProperty(Boolean linqToSql, Expression right, Type modelPropertyType, Type viewModelPropertyType, ViewMappingHelper propAttrHelper, int depth, Object filters, Boolean returnEntityExpression = false)
         {
-            if (!propAttrHelper.HasMapFunction)
+            if (!propAttrHelper.HasMapFunction || returnEntityExpression == true)
             {
                 var enumerableQueue = new Queue<String>(propAttrHelper.ViewMapping.ColumnPropertyName.Split('-'));
                 if (right == null)
@@ -832,82 +833,6 @@ namespace Joe.Map
             }
         }
 
-        public class ViewModelComparer<T> : IEqualityComparer<T>
-        {
-            internal static ViewModelComparer<T> _viewModelComparer = new ViewModelComparer<T>();
-            public static ViewModelComparer<T> ViewModelIEqualityComparer { get { return _viewModelComparer; } }
-
-            public bool Equals(T x, T y)
-            {
-                var xIDs = x.GetIDs();
-                var yIDs = y.GetIDs();
-                foreach (var key in xIDs)
-                    if (!yIDs.Contains(key))
-                        return false;
-
-                return true;
-            }
-
-            public int GetHashCode(T obj)
-            {
-                int hash = 0;
-                foreach (var id in obj.GetIDs())
-                {
-                    var defaultValue = id.GetType().GetDefualtValue();
-
-                    if (id != defaultValue)
-                        hash = hash + id.GetHashCode();
-                    else
-                        hash += DateTime.Now.GetHashCode();
-
-                }
-                return hash;
-            }
-        }
-
-        public class ModelCompare<T> : IEqualityComparer<T>
-        {
-            internal Type ViewModelType { get; set; }
-
-            public ModelCompare(Type viewModelType)
-            {
-                ViewModelType = viewModelType;
-            }
-
-            public bool Equals(T x, T y)
-            {
-                var xIDs = x.GetModelIDs(ViewModelType);
-                var yIDs = y.GetModelIDs(ViewModelType);
-                foreach (var key in xIDs)
-                    if (!yIDs.Contains(key))
-                        return false;
-
-                return true;
-            }
-
-            public int GetHashCode(T obj)
-            {
-                int hash = 0;
-                foreach (var id in obj.GetModelIDs(ViewModelType))
-                {
-                    hash = hash + id.GetHashCode();
-                }
-                return hash;
-            }
-        }
-
-        internal static Object GetDefualtValue(this Type type)
-        {
-            if (type.IsValueType)
-            {
-                return Activator.CreateInstance(type);
-            }
-            else
-            {
-                return null;
-            }
-        }
-
         public static Boolean IsNullable(this Type type)
         {
             if (Nullable.GetUnderlyingType(type) != null || type.IsClass)
@@ -935,6 +860,30 @@ namespace Joe.Map
             if (type.IsGenericType)
                 return type.GetInterfaces().Any(i => i == typeof(IQueryable));
             return false;
+        }
+
+        public static Object ToNullable(this string s, Type nullableType)
+        {
+            nullableType = Nullable.GetUnderlyingType(nullableType) ?? nullableType;
+            var nullableMethod = typeof(ExpressionHelpers).GetMethod("ToNullable", new[] { typeof(string) });
+            nullableMethod = nullableMethod.MakeGenericMethod(nullableType);
+
+            return nullableMethod.Invoke(null, new[] { s });
+        }
+
+        public static Nullable<T> ToNullable<T>(this string s) where T : struct
+        {
+            Nullable<T> result = new Nullable<T>();
+            try
+            {
+                if (!string.IsNullOrEmpty(s) && s.Trim().Length > 0)
+                {
+                    TypeConverter conv = TypeDescriptor.GetConverter(typeof(T));
+                    result = (T)conv.ConvertFrom(s);
+                }
+            }
+            catch { }
+            return result;
         }
 
         internal static PropertyInfo ParseProperty(Boolean linqToSql, ParameterExpression modelEx, ref Expression right, ref Type modelPropertyType, String evalString)
