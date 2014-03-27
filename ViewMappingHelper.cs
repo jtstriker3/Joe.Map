@@ -13,7 +13,7 @@ namespace Joe.Map
         Type Model { get; set; }
         public PropertyInfo PropInfo { get; set; }
         private ViewMappingAttribute _attr = null;
-        private static IDictionary<String, String> _propInfoCache = new Dictionary<String, String>();
+        //private static IDictionary<String, String> _propInfoCache = new Dictionary<String, String>();
 
         public ViewMappingHelper(PropertyInfo info, Type model)
         {
@@ -164,24 +164,30 @@ namespace Joe.Map
         {
             get
             {
+
                 if (_modelPropertyName == null && Model != null)
                 {
                     var key = Model.FullName + PropInfo.Name;
-                    if (_propInfoCache.ContainsKey(key))
-                        return _propInfoCache[key];
 
-                    if (Model.GetProperty(PropInfo.Name) != null)
-                        _modelPropertyName = PropInfo.Name;
-                    else
-                        for (int i = 1; i < PropInfo.Name.Length; i++)
-                        {
-                            var infoName = PropInfo.Name;
-                            infoName = infoName.Insert(i, ".");
-                            if (ReflectionHelper.TryGetEvalPropertyInfo(Model, infoName) != null)
-                                _modelPropertyName = infoName;
-                        }
+                    Delegate getPropInfo = (Func<String>)(() =>
+                    {
+                        if (Model.GetProperty(PropInfo.Name) != null)
+                            return PropInfo.Name;
+                        else
+                            for (int i = 1; i < PropInfo.Name.Length; i++)
+                            {
+                                var infoName = PropInfo.Name;
+                                infoName = infoName.Insert(i, ".");
+                                if (ReflectionHelper.TryGetEvalPropertyInfo(Model, infoName) != null)
+                                    return infoName;
+                            }
 
-                    _propInfoCache.Add(key, _modelPropertyName);
+                        return null;
+                    });
+
+                    _modelPropertyName = (String)Joe.Caching.Cache.Instance.GetOrAdd(key, TimeSpan.MaxValue, getPropInfo);
+
+
                 }
                 return _modelPropertyName;
             }

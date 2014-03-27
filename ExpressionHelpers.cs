@@ -16,7 +16,7 @@ namespace Joe.Map
     {
         private const String MaxDepthErrorMessage = "You have hit the default max depth of 10. If you have unintentionally created a recursive view then please correct this. If this is a valid mapping that truly goes 10 levels deep then Set the MaxDepth property of the ViewMapping Attribute to the depth you need.  If this is ture recursive view i.e. some sore of Tree structure set the Max Depth to a depth that you business rules require. True Recursive Views i.e. objects that have a instance of themselves cannot be executed as an Entity Query and must be an Object Query.";
         internal const int MaxDepthDefault = 10;
-        internal static readonly Dictionary<String, LambdaExpression> CachedExpressions = new Dictionary<String, LambdaExpression>();
+        //internal static readonly Dictionary<String, LambdaExpression> CachedExpressions = new Dictionary<String, LambdaExpression>();
         private static MethodInfo _stringConvertMethod;
         public static MethodInfo StringConvertMethod
         {
@@ -116,16 +116,15 @@ namespace Joe.Map
         internal static LambdaExpression BuildExpression(Type model, Type viewModel, Boolean linqToSql, Object filters)
         {
             LambdaExpression expression;
+
+            var key = "buildExpression";
+            Delegate buildExpressionDelegate = (Func<Type, Type, Boolean, int, Object, Expression>)((Type delegateModel, Type delegateViewModel, Boolean delegateLinqToSql, int delegateDepth, Object delegateFilters) =>
+            {
+                return BuildExpression(delegateModel, delegateViewModel, delegateLinqToSql, delegateDepth, delegateFilters);
+            });
+
             if (filters == null)
-                if (CachedExpressions.ContainsKey(model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql))
-                    expression =
-                        CachedExpressions[model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql];
-                else
-                {
-                    expression = BuildExpression(model, viewModel, linqToSql, 0, filters);
-                    CachedExpressions.Add(model.AssemblyQualifiedName + viewModel.AssemblyQualifiedName + linqToSql,
-                                          expression);
-                }
+                return (LambdaExpression)Joe.Caching.Cache.Instance.GetOrAdd(key, TimeSpan.MaxValue, buildExpressionDelegate, model, viewModel, linqToSql, 0, filters);
             else
                 expression = BuildExpression(model, viewModel, linqToSql, 0, filters);
 
@@ -233,6 +232,8 @@ namespace Joe.Map
             mapExpression = Expression.Lambda(mapExpression, parameterExpression);
             var selectExpression = Expression.Call(typeof(Enumerable), "SelectMany",
                                            new[] { inType, outType }, selectFrom, mapExpression);
+            selectExpression = Expression.Call(typeof(Enumerable), "ToList",
+                                          new[] { outType }, selectExpression);
             return selectExpression;
 
         }
@@ -244,6 +245,8 @@ namespace Joe.Map
             mapExpression = Expression.Lambda(mapExpression, parameterExpression);
             var selectExpression = Expression.Call(typeof(Enumerable), "Select",
                                           new[] { inType, outType }, selectFrom, mapExpression);
+            selectExpression = Expression.Call(typeof(Enumerable), "ToList",
+                                          new[] { outType }, selectExpression);
             return selectExpression;
 
         }

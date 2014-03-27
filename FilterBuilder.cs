@@ -116,7 +116,43 @@ namespace Joe.Map
 
             filter = regEx.Replace(filter, String.Empty);
 
-            startGroup.Operations.AddRange(this.BuildOperations(filter));
+            if (filter.StartsWith("("))
+            {
+                var startGroupRegEx = new Regex(@"\(([^\)]+)\)*");
+                var matchString = startGroupRegEx.Match(filter).Value;
+                var ungroupedFilter = startGroupRegEx.Replace(filter, String.Empty);
+
+                if (String.IsNullOrEmpty(ungroupedFilter))
+                {
+                    filter = filter.Remove(0, 1);
+                    filter = filter.Remove(filter.Length - 1);
+                    startGroup.Operations.AddRange(this.BuildOperations(filter));
+                }
+                else
+                {
+                    var subGroup = new OperationSubGroup();
+                    if (ungroupedFilter.StartsWith(":and:"))
+                    {
+                        subGroup.JoinOperator = OperationsOperators.And;
+                        matchString = matchString.Remove(0, 1);
+                        matchString = matchString.Remove(matchString.Length - 1);
+                        ungroupedFilter = ungroupedFilter.Remove(0, 5);
+                    }
+                    else
+                    {
+                        subGroup.JoinOperator = OperationsOperators.Or;
+                        matchString = matchString.Remove(0, 1);
+                        matchString = matchString.Remove(matchString.Length - 1);
+                        ungroupedFilter = ungroupedFilter.Remove(0, 4);
+                    }
+
+                    startGroup.SubGroups.Add((OperationSubGroup)this.BuildOperationGroups(matchString, subGroup));
+                    startGroup.Operations.AddRange(this.BuildOperations(ungroupedFilter));
+                }
+
+            }
+            else
+                startGroup.Operations.AddRange(this.BuildOperations(filter));
 
             foreach (Match group in matches)
             {
@@ -220,15 +256,18 @@ namespace Joe.Map
             {
 
                 var subGroupExpression = this.BuildWhereClause(subGroup);
-                switch (subGroup.JoinOperator)
-                {
-                    case OperationsOperators.And:
-                        previousExpression = Expression.And(previousExpression, subGroupExpression);
-                        break;
-                    case OperationsOperators.Or:
-                        previousExpression = Expression.Or(previousExpression, subGroupExpression);
-                        break;
-                }
+                if (previousExpression != null)
+                    switch (subGroup.JoinOperator)
+                    {
+                        case OperationsOperators.And:
+                            previousExpression = Expression.And(previousExpression, subGroupExpression);
+                            break;
+                        case OperationsOperators.Or:
+                            previousExpression = Expression.Or(previousExpression, subGroupExpression);
+                            break;
+                    }
+                else
+                    previousExpression = subGroupExpression;
 
             }
 
