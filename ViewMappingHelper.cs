@@ -110,6 +110,13 @@ namespace Joe.Map
             }
         }
 
+        public Boolean HasModelWhere {
+            get
+            {
+                return this.ViewMapping.ModelWhere != null;
+            }
+        }
+
         public Type GetOfType()
         {
             return _attr.OfType;

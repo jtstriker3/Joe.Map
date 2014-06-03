@@ -14,7 +14,7 @@ namespace Joe.Map
 {
     public static class ExpressionHelpers
     {
-        private const String MaxDepthErrorMessage = "You have hit the default max depth of 10. If you have unintentionally created a recursive view then please correct this. If this is a valid mapping that truly goes 10 levels deep then Set the MaxDepth property of the ViewMapping Attribute to the depth you need.  If this is ture recursive view i.e. some sore of Tree structure set the Max Depth to a depth that you business rules require. True Recursive Views i.e. objects that have a instance of themselves cannot be executed as an Entity Query and must be an Object Query.";
+        private const String MaxDepthErrorMessage = "You have hit the default max depth of 10. If you have unintentionally created a recursive view then please correct this. If this is a valid mapping that truly goes 10 levels deep then Set the MaxDepth property of the ViewMapping Attribute to the depth you need.  If this is ture recursive view i.e. some sort of Tree structure set the Max Depth to a depth that your business rules require. True Recursive Views i.e. objects that have a instance of themselves cannot be executed as an Entity Query and must be an Object Query.";
         internal const int MaxDepthDefault = 10;
         //internal static readonly Dictionary<String, LambdaExpression> CachedExpressions = new Dictionary<String, LambdaExpression>();
         private static MethodInfo _stringConvertMethod;
@@ -115,7 +115,7 @@ namespace Joe.Map
 
         internal static LambdaExpression BuildExpression(Type model, Type viewModel, Boolean linqToSql, Object filters)
         {
-            LambdaExpression expression;
+            //LambdaExpression expression;
 
             var key = "buildExpression";
             Delegate buildExpressionDelegate = (Func<Type, Type, Boolean, int, Object, Expression>)((Type delegateModel, Type delegateViewModel, Boolean delegateLinqToSql, int delegateDepth, Object delegateFilters) =>
@@ -123,12 +123,17 @@ namespace Joe.Map
                 return BuildExpression(delegateModel, delegateViewModel, delegateLinqToSql, delegateDepth, delegateFilters);
             });
 
-            if (filters == null)
-                return (LambdaExpression)Joe.Caching.Cache.Instance.GetOrAdd(key, TimeSpan.MaxValue, buildExpressionDelegate, model, viewModel, linqToSql, 0, filters);
-            else
-                expression = BuildExpression(model, viewModel, linqToSql, 0, filters);
+            //Should be able to cache all expressions with the new Hashing of Parameters
+            //if (filters == null)
+            return (LambdaExpression)Joe.Caching.Cache.Instance.GetOrAdd(
+                key,
+                TimeSpan.MaxValue,
+                buildExpressionDelegate,
+                model, viewModel, linqToSql, 0, filters);
+            //else
+            //expression = BuildExpression(model, viewModel, linqToSql, 0, filters);
 
-            return expression;
+            //return expression;
         }
 
         internal static LambdaExpression BuildExpression(Type model, Type viewModel, Boolean linqToSql, int depth, Object filters)
@@ -268,7 +273,17 @@ namespace Joe.Map
             {
                 var resourceType = propAttrHelper.ViewMapping.MapFunctionType ?? propAttrHelper.PropInfo.DeclaringType;
                 var expressionBody = ((LambdaExpression)resourceType.GetMethod(propAttrHelper.ViewMapping.MapFunction).Invoke(null, new Object[] { linqToSql })).Body;
-                return PredicateRewriter.Rewrite(expressionBody, (ParameterExpression)right);
+                var expression = PredicateRewriter.Rewrite(expressionBody, (ParameterExpression)right);
+
+                if (expression.Type.ImplementsIEnumerable())
+                {
+                    var genericType = expression.Type.GetGenericArguments().FirstOrDefault();
+                    if (genericType != null)
+                        expression = FilterBuilder.BuildWhereExpressions(expression, genericType, propAttrHelper.ViewMapping.Where, linqToSql, false, filters);
+                }
+
+                return expression;
+
             }
         }
 
@@ -324,7 +339,9 @@ namespace Joe.Map
                                     outType = nestExpression.Type;
                                 }
                                 if (propAttrHelper != null && propAttrHelper.HasLinqFunction && viewModelPropertyType.IsSimpleType())
-                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, filters);
+                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, true, filters);
+                                if (propAttrHelper.HasModelWhere)
+                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
                                 rightsTree.Add(right);
                                 right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
 
@@ -347,10 +364,11 @@ namespace Joe.Map
                                 nestExpression = Expression.MemberInit(Expression.New(viewModelPropertyType), block.ToArray());
                                 outType = nestExpression.Type;
                                 if (propAttrHelper != null && propAttrHelper.HasLinqFunction && viewModelPropertyType.IsSimpleType())
-                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, filters);
+                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, true, filters);
+                                if (propAttrHelper.HasModelWhere)
+                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
                                 rightsTree.Add(right);
                                 right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
-
                                 hasSelect = true;
                             }
                         }
@@ -410,14 +428,17 @@ namespace Joe.Map
                     {
                         var outType = right.Type.GetGenericArguments().LastOrDefault();
                         if (outType != null)
-                            right = FilterBuilder.BuildWhereExpressions(right, outType, propAttrHelper.ViewMapping.Where, linqToSql, filters);
+                            right = FilterBuilder.BuildWhereExpressions(right, outType, propAttrHelper.ViewMapping.Where, linqToSql, false, filters);
                     }
                     else if (!viewModelProperty.IsSimpleType())
-                        right = FilterBuilder.BuildWhereExpressions(right, viewModelProperty, propAttrHelper.ViewMapping.Where, linqToSql, filters);
-                    right = BuildIncludeExpressions(right, viewModelProperty, modelPropertyType);
-                    right = OrderBy.BuildOrderByExpressions(right, viewModelProperty);
-                    right = BuildGroupByExpressions(right, viewModelProperty, propAttrHelper.ViewMapping.GroupBy, linqToSql);
-                    right = BuildLinqFunction(right, viewModelProperty, propAttrHelper);
+                        right = FilterBuilder.BuildWhereExpressions(right, viewModelProperty, propAttrHelper.ViewMapping.Where, linqToSql, false, filters);
+                    if (!returnEntityExpression)
+                    {
+                        right = BuildIncludeExpressions(right, viewModelProperty, modelPropertyType);
+                        right = OrderBy.BuildOrderByExpressions(right, viewModelProperty);
+                        right = BuildGroupByExpressions(right, viewModelProperty, propAttrHelper.ViewMapping.GroupBy, linqToSql);
+                        right = BuildLinqFunction(right, viewModelProperty, propAttrHelper);
+                    }
 
                     if (right.Type.IsSimpleType()
                        && right.Type != destinationPropertyType
@@ -460,6 +481,10 @@ namespace Joe.Map
                                     nullExpression = Expression.Default(right.Type);
                                 else
                                     nullExpression = Expression.Default(destinationPropertyType);
+
+                                if (nullExpression.Type != right.Type && !returnEntityExpression)
+                                    right = Expression.Convert(right, nullExpression.Type);
+
                                 try
                                 {
                                     right = Expression.Condition(nullCondition, nullExpression, right);

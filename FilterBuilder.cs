@@ -28,6 +28,9 @@ namespace Joe.Map
             public const String Null = "null";
             public const String True = "true";
             public const String False = "false";
+            public const String NotContains = "!Contains";
+            public const String In = "In";
+            public const String NotIn = "!In";
         }
         private static class OperationsOperators
         {
@@ -35,7 +38,7 @@ namespace Joe.Map
             public const String Or = "or";
         }
 
-        internal static Expression BuildWhereExpressions(Expression right, Type viewModel, String filterString, Boolean linqToSql, Object filters = null)
+        internal static Expression BuildWhereExpressions(Expression right, Type viewModel, String filterString, Boolean linqToSql, Boolean modelWhere, Object filters = null)
         {
             List<ViewFilterAttribute> filterList = viewModel.GetCustomAttributes(typeof(ViewFilterAttribute), true).Union(
                 viewModel.GetInterfaces().SelectMany(interphase => interphase.GetCustomAttributes(typeof(ViewFilterAttribute), true))
@@ -53,9 +56,13 @@ namespace Joe.Map
 
             foreach (ViewFilterAttribute filter in filterList)
             {
-                var filterExpression = new FilterBuilder(filter.Where, viewModel, linqToSql, filters).BuildWhereLambda();
-                if (filterExpression != null)
-                    right = Expression.Call(typeof(Queryable), "Where", new[] { viewModel }, right, filterExpression);
+                var whereString = modelWhere ? filter.ModelWhere : filter.Where;
+                if (whereString != null)
+                {
+                    var filterExpression = new FilterBuilder(filter.Where, viewModel, linqToSql, filters).BuildWhereLambda();
+                    if (filterExpression != null)
+                        right = Expression.Call(typeof(Queryable), "Where", new[] { viewModel }, right, filterExpression);
+                }
             }
             return right;
         }
@@ -277,7 +284,10 @@ namespace Joe.Map
         public LambdaExpression BuildWhereLambda()
         {
             var expression = this.BuildWhereClause(Operations);
-            return Expression.Lambda(expression, new ParameterExpression[] { ParameterExpression });
+            if (expression != null)
+                return Expression.Lambda(expression, new ParameterExpression[] { ParameterExpression });
+
+            return null;
         }
 
         private Expression GetFilterExpression(Operation.Condition cond)
@@ -286,11 +296,12 @@ namespace Joe.Map
             {
                 var filterProp = cond.Constant.Remove(0, 1);
                 ViewMappingHelper helper = new ViewMappingHelper(new ViewMappingAttribute(filterProp));
-                return Expression.Constant(
-                    Expression.Lambda(
-                    Expression.Block(
-                    ExpressionHelpers.ParseProperty(LinqToSql, Expression.Constant(FilterValues), FilterValues.GetType(), cond.PropertyExpression.Type, helper, 0, FilterValues, true))).Compile().DynamicInvoke()
-                    );
+                var value = Expression.Lambda(
+                                Expression.Block(
+                                    ExpressionHelpers.ParseProperty(LinqToSql, Expression.Constant(FilterValues), FilterValues.GetType(), cond.PropertyExpression.Type, helper, 0, FilterValues, true))).Compile().DynamicInvoke();
+                if (this.IsTypeSame(cond))
+                    return Expression.Constant(value, cond.PropertyExpression.Type);
+                return Expression.Constant(value);
             }
             else if (FilterValues == null && IsFilter(cond.Constant))
                 throw new NullReferenceException("Filter Object cannot be null if the View Requires it");
@@ -324,6 +335,22 @@ namespace Joe.Map
             else
                 return Expression.Constant(Convert.ChangeType(constant, parameterType));
 
+        }
+
+        private Boolean IsTypeSame(Operation.Condition cond)
+        {
+            switch (cond.Operator)
+            {
+                case FilterOperators.Equal:
+                case FilterOperators.NotEqual:
+                case FilterOperators.GreaterThan:
+                case FilterOperators.LessThan:
+                case FilterOperators.GreaterThanEqualTo:
+                case FilterOperators.LessThanEqualTo:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private Expression BuildFilterExpression(Operation.Condition cond, Expression parameterExpression)
@@ -382,6 +409,38 @@ namespace Joe.Map
                         var method = typeof(Enumerable).GetMethods().Single(meth => meth.Name == "Contains" && meth.GetParameters().Count() == 2).MakeGenericMethod(cond.PropertyExpression.Type.GetGenericArguments().Single());
                         ex = Expression.Call(method, cond.PropertyExpression, GetFilterExpression(cond));
                     }
+                    break;
+                case FilterOperators.NotContains:
+                    if (cond.PropertyExpression.Type == typeof(String))
+                        ex = Expression.Call(cond.PropertyExpression, cond.PropertyExpression.Type.GetMethod("Contains"), GetFilterExpression(cond));
+
+                    else
+                    {
+                        var method = typeof(Enumerable).GetMethods().Single(meth => meth.Name == "Contains" && meth.GetParameters().Count() == 2).MakeGenericMethod(cond.PropertyExpression.Type.GetGenericArguments().Single());
+                        ex = Expression.Call(method, cond.PropertyExpression, GetFilterExpression(cond));
+                    }
+                    ex = Expression.Equal(ex, Expression.Constant(false));
+                    break;
+                case FilterOperators.In:
+                    var filterExpression = GetFilterExpression(cond);
+                    if (filterExpression.Type == typeof(String))
+                        ex = Expression.Call(filterExpression, filterExpression.Type.GetMethod("Contains"), cond.PropertyExpression);
+                    else
+                    {
+                        var method = typeof(Enumerable).GetMethods().Single(meth => meth.Name == "Contains" && meth.GetParameters().Count() == 2).MakeGenericMethod(filterExpression.Type.GetGenericArguments().Single());
+                        ex = Expression.Call(method, filterExpression, cond.PropertyExpression);
+                    }
+                    break;
+                case FilterOperators.NotIn:
+                    filterExpression = GetFilterExpression(cond);
+                    if (filterExpression.Type == typeof(String))
+                        ex = Expression.Call(filterExpression, filterExpression.Type.GetMethod("Contains"), cond.PropertyExpression);
+                    else
+                    {
+                        var method = typeof(Enumerable).GetMethods().Single(meth => meth.Name == "Contains" && meth.GetParameters().Count() == 2).MakeGenericMethod(filterExpression.Type.GetGenericArguments().Single());
+                        ex = Expression.Call(method, filterExpression, cond.PropertyExpression);
+                    }
+                    ex = Expression.Equal(ex, Expression.Constant(false));
                     break;
             }
 

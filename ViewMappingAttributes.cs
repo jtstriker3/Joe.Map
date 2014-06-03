@@ -60,6 +60,11 @@ namespace Joe.Map
         public String ToBoolean { get; set; }
         public Type OfType { get; set; }
         /// <summary>
+        /// Use this when the Property you want to filter on is not included in the
+        /// ViewModel
+        /// </summary>
+        public String ModelWhere { get; set; }
+        /// <summary>
         /// Specify Static Function that Contains Map Expression
         /// Fuction Must take in a boolean that signifies if the query is against a Database
         /// Must Return a LambdaExpression
@@ -91,5 +96,6 @@ namespace Joe.Map
     public class ViewFilterAttribute : Attribute
     {
         public String Where { get; set; }
+        public String ModelWhere { get; set; }
     }
 }
