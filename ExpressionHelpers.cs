@@ -94,10 +94,16 @@ namespace Joe.Map
                 var genericType = right.Type.ImplementsIEnumerable() ? right.Type.GetGenericArguments().Single() : right.Type;
                 right = Expression.Call(typeof(Queryable), "AsQueryable", new[] { genericType }, right);
                 var hasNonGeneric = typeof(Queryable).GetMethods().Where(func => !func.IsGenericMethod && func.Name == propAttrHelper.GetLinqFunction()).Count() > 0;
-                if (hasNonGeneric)
-                    right = Expression.Call(typeof(Queryable), propAttrHelper.GetLinqFunction(), new Type[] { }, right);
-                else
-                    right = Expression.Call(typeof(Queryable), propAttrHelper.GetLinqFunction(), new Type[] { genericType }, right);
+
+                var linqFunctions = propAttrHelper.GetLinqFunction().Split(',');
+
+                foreach (var linqFunction in linqFunctions)
+                {
+                    if (hasNonGeneric)
+                        right = Expression.Call(typeof(Queryable), linqFunction, new Type[] { }, right);
+                    else
+                        right = Expression.Call(typeof(Queryable), linqFunction, new Type[] { genericType }, right);
+                }
             }
             return right;
         }
@@ -243,15 +249,16 @@ namespace Joe.Map
 
         }
 
-        internal static MethodCallExpression Select(Type inType, Type outType, Expression selectFrom, Expression mapExpression, ParameterExpression parameterExpression)
+        internal static MethodCallExpression Select(Type inType, Type outType, Expression selectFrom, Expression mapExpression, ParameterExpression parameterExpression, bool callToList)
         {
             selectFrom = Expression.Call(typeof(Enumerable), "Distinct",
                       new[] { inType }, selectFrom);
             mapExpression = Expression.Lambda(mapExpression, parameterExpression);
             var selectExpression = Expression.Call(typeof(Enumerable), "Select",
                                           new[] { inType, outType }, selectFrom, mapExpression);
-            selectExpression = Expression.Call(typeof(Enumerable), "ToList",
-                                          new[] { outType }, selectExpression);
+            if (callToList)
+                selectExpression = Expression.Call(typeof(Enumerable), "ToList",
+                                              new[] { outType }, selectExpression);
             return selectExpression;
 
         }
@@ -343,7 +350,11 @@ namespace Joe.Map
                                 if (propAttrHelper.HasModelWhere)
                                     right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
                                 rightsTree.Add(right);
-                                right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
+                                right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression, !propAttrHelper.HasLinqFunction);
+
+                                //This is need to be executed becasue it will be missed later
+                                if (propAttrHelper.HasLinqFunction)
+                                    right = BuildLinqFunction(right, genericPropertyType, propAttrHelper);
 
                                 hasSelect = true;
                             }
@@ -358,7 +369,7 @@ namespace Joe.Map
                             }
 
                             var outType = right.Type;
-                            if (!viewModelPropertyType.IsSimpleType() && !returnEntityExpression)
+                            if ((!viewModelPropertyType.IsSimpleType() && !returnEntityExpression))
                             {
                                 var block = BuildMemberBindings(genericPropertyType, viewModelPropertyType, linqToSql, parameterExpression, depth + 1, filters);
                                 nestExpression = Expression.MemberInit(Expression.New(viewModelPropertyType), block.ToArray());
@@ -368,9 +379,20 @@ namespace Joe.Map
                                 if (propAttrHelper.HasModelWhere)
                                     right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
                                 rightsTree.Add(right);
-                                right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
+                                right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression, !propAttrHelper.HasLinqFunction);
                                 hasSelect = true;
                             }
+                            //else if (!returnEntityExpression)
+                            //{
+                            //    nestExpression = Parse(linqToSql, parameterExpression, genericPropertyType, viewModelPropertyType, destinationPropertyType, evalQueue, depth, filters, returnEntityExpression, true, hasTransformAttr, propAttrHelper);
+                            //    if (propAttrHelper != null && propAttrHelper.HasLinqFunction && viewModelPropertyType.IsSimpleType())
+                            //        right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, true, filters);
+                            //    if (propAttrHelper.HasModelWhere)
+                            //        right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
+                            //    rightsTree.Add(right);
+                            //    right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
+                            //    hasSelect = true;
+                            //}
                         }
 
                     }
@@ -419,6 +441,7 @@ namespace Joe.Map
                     else
                         right = Expression.Equal(right, comparer);
                 }
+
 
                 if (!nested && right.Type.ImplementsIEnumerable() && propAttrHelper != null)
                 {
