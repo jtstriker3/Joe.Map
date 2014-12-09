@@ -37,7 +37,7 @@ namespace Joe.Map
         /// <summary>
         /// Set to true if you are using Code First and do not have a view representing the Many To Many relationship table.
         /// </summary>
-        public Boolean UseParentListForRelationships { get; set; }
+        public CollectionHandleType HowToHandleCollections { get; set; }
         /// <summary>
         /// Default true
         /// Set to false to prevent a list from mapping back its Properties

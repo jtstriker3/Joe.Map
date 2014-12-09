@@ -6,7 +6,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Joe.Reflection;
 using System.Collections;
-using System.Data.Entity;
 
 namespace Joe.Map
 {
@@ -81,11 +80,22 @@ namespace Joe.Map
             throw new Exception("modelList must be of IEnumerable<T> to generateMapping try using \"Map(Type modelType, Type viewModelType)");
         }
 
-        public static IQueryable Map(this IEnumerable modelList, Type modelType, Type viewModelType, Object filters = null)
+        public static IQueryable Map(this IEnumerable modelList, Type modelType, Type viewModelType, Object filters)
         {
             var selectMappingExpression = ExpressionHelpers.BuildExpression(modelType, viewModelType, filters);
             var selectExpression = Expression.Call(typeof(Enumerable), "Select", new Type[] { modelType, viewModelType }, Expression.Constant(modelList), selectMappingExpression);
             return ((IEnumerable)Expression.Lambda(selectExpression).Compile().DynamicInvoke()).AsQueryable();
+        }
+
+        //This cannot be an Extension because of collisions with Map(this IEnumerable modelList, Type viewModelType, Object filters = null)
+        public static Object Map<TModel>(TModel model, Type viewModelType, Object filters = null)
+        {
+            var modelType = typeof(TModel);
+            var tempList = new List<TModel>();
+            tempList.Add(model);
+            var selectMappingExpression = ExpressionHelpers.BuildExpression(modelType, viewModelType, filters);
+            var selectExpression = Expression.Call(typeof(Enumerable), "Select", new Type[] { modelType, viewModelType }, Expression.Constant(tempList), selectMappingExpression);
+            return ((IEnumerable)Expression.Lambda(selectExpression).Compile().DynamicInvoke()).Cast<Object>().Single();
         }
         #endregion
 

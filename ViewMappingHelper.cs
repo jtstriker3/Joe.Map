@@ -116,6 +116,22 @@ namespace Joe.Map
                 return this.ViewMapping.ModelWhere != null;
             }
         }
+        
+        public Boolean HasWhere
+        {
+            get
+            {
+                return this.ViewMapping.Where != null;
+            }
+        }
+
+        public Boolean CanSelect
+        {
+            get
+            {
+                return !(this.HasLinqFunction || this.HasWhere);
+            }
+        }
 
         public Type GetOfType()
         {

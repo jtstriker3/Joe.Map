@@ -227,6 +227,8 @@ namespace Joe.Map
                     var useFilterInfo = Joe.Reflection.ReflectionHelper.TryGetEvalPropertyInfo(filterType, cond.Constant.Remove(0, 1) + "Active");
                     if (useFilterInfo != null)
                         return !(Boolean)Joe.Reflection.ReflectionHelper.GetEvalProperty(FilterValues, cond.Constant.Remove(0, 1) + "Active");
+                    else
+                        return false;
                 }
                 else
                     return true;
@@ -237,6 +239,7 @@ namespace Joe.Map
         protected Expression BuildWhereClause(OperationGroup operationGroup)
         {
             Expression previousExpression = null;
+            Expression topExpression = null;
             var validFilters = operationGroup.Operations.Where(opp => !IgnoreFilter(opp.Filter));
             if (validFilters.Count() == 0)
                 return null;
@@ -248,37 +251,56 @@ namespace Joe.Map
                     switch (opp.Operator.ToLower())
                     {
                         case OperationsOperators.And:
-                            ex = Expression.And(previousExpression, ex);
+                            ex = Expression.And(topExpression, ex);
                             break;
                         case OperationsOperators.Or:
-                            ex = Expression.Or(previousExpression, ex);
+                            ex = Expression.Or(topExpression, ex);
                             break;
                     }
                 }
 
-                previousExpression = ex;
+                topExpression = ex;
             }
 
-            foreach (OperationSubGroup subGroup in operationGroup.SubGroups)
+
+            if (operationGroup.SubGroups.Count() > 0)
             {
 
-                var subGroupExpression = this.BuildWhereClause(subGroup);
+                foreach (OperationSubGroup subGroup in operationGroup.SubGroups)
+                {
+                    var subGroupExpression = this.BuildWhereClause(subGroup);
+                    if (previousExpression != null)
+                        switch (subGroup.JoinOperator)
+                        {
+                            case OperationsOperators.And:
+                                previousExpression = Expression.And(previousExpression, subGroupExpression);
+                                break;
+                            case OperationsOperators.Or:
+                                previousExpression = Expression.Or(previousExpression, subGroupExpression);
+                                break;
+                        }
+                    else
+                        previousExpression = subGroupExpression;
+
+                }
+
+                //If no filters were applied then we might have a null expression
                 if (previousExpression != null)
-                    switch (subGroup.JoinOperator)
+                {
+                    var topJoin = operationGroup.SubGroups.First().JoinOperator;
+                    switch (topJoin)
                     {
                         case OperationsOperators.And:
-                            previousExpression = Expression.And(previousExpression, subGroupExpression);
+                            topExpression = Expression.And(topExpression, previousExpression);
                             break;
                         case OperationsOperators.Or:
-                            previousExpression = Expression.Or(previousExpression, subGroupExpression);
+                            topExpression = Expression.Or(topExpression, previousExpression);
                             break;
                     }
-                else
-                    previousExpression = subGroupExpression;
-
+                }
             }
 
-            return previousExpression;
+            return topExpression;
         }
 
         public LambdaExpression BuildWhereLambda()

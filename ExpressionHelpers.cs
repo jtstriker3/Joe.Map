@@ -3,7 +3,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data.Entity;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -18,18 +17,25 @@ namespace Joe.Map
         internal const int MaxDepthDefault = 10;
         //internal static readonly Dictionary<String, LambdaExpression> CachedExpressions = new Dictionary<String, LambdaExpression>();
         private static MethodInfo _stringConvertMethod;
-        public static MethodInfo StringConvertMethod
-        {
-            get
-            {
-                _stringConvertMethod = _stringConvertMethod ?? typeof(System.Data.Entity.SqlServer.SqlFunctions).GetMethod("StringConvert", new[] { typeof(Decimal?) });
-                return _stringConvertMethod;
-            }
-            set
-            {
-                _stringConvertMethod = value;
-            }
-        }
+
+        //String Convert Method Can Be Set to Do Logic to determine what context is being used;
+        public delegate MethodInfo StringConvertMethodDelegate(Type entityType);
+        public static StringConvertMethodDelegate StringConvertMethod { get; set; }
+
+        public delegate MethodInfo GetIncludeMethodDelegate(Type entityType);
+        public static GetIncludeMethodDelegate GetIncludeMethod { get; set; }
+
+        //{
+        //    get
+        //    {
+        //        _stringConvertMethod = _stringConvertMethod ?? typeof(System.Data.Entity.SqlServer.SqlFunctions).GetMethod("StringConvert", new[] { typeof(Decimal?) });
+        //        return _stringConvertMethod;
+        //    }
+        //    set
+        //    {
+        //        _stringConvertMethod = value;
+        //    }
+        //}
 
         private static class MappingOperators
         {
@@ -58,7 +64,8 @@ namespace Joe.Map
                 //var type = typeof(Func<,>).MakeGenericType(typeof(ViewModel), info.PropertyType);
                 //MemberExpression propertyEx = Expression.Property(viewParamEx, info);
                 //Expression propLamdaEx = Expression.Lambda(propertyEx, new ParameterExpression[] { viewParamEx });
-                query.Include(info.Name);
+
+                return (IQueryable<TViewModel>)GetIncludeMethod(model).Invoke(null, new object[] { query, info.Name });
             }
 
             return query;
@@ -74,7 +81,7 @@ namespace Joe.Map
                 //MemberExpression propertyEx = Expression.Property(viewParamEx, info);
                 //Expression propLamdaEx = Expression.Lambda(propertyEx, new ParameterExpression[] { viewParamEx });
                 right = Expression.Call(typeof(Queryable), "AsQueryable", new[] { viewModel }, right);
-                right = Expression.Call(typeof(QueryableExtensions), "Include", new Type[] { }, right, Expression.Constant(info.Name));
+                right = Expression.Call(GetIncludeMethod(model), right, Expression.Constant(info.Name));
                 right = Expression.Convert(right, typeof(IEnumerable<>).MakeGenericType(viewModel));
             }
             return right;
@@ -256,11 +263,20 @@ namespace Joe.Map
             mapExpression = Expression.Lambda(mapExpression, parameterExpression);
             var selectExpression = Expression.Call(typeof(Enumerable), "Select",
                                           new[] { inType, outType }, selectFrom, mapExpression);
-            if (callToList)
-                selectExpression = Expression.Call(typeof(Enumerable), "ToList",
-                                              new[] { outType }, selectExpression);
+            //if (callToList)
+            //    selectExpression = Expression.Call(typeof(Enumerable), "ToList",
+            //                                  new[] { outType }, selectExpression);
             return selectExpression;
 
+        }
+
+        internal static MethodCallExpression ToList(Expression listExpression)
+        {
+            var outGenericType = listExpression.Type.GetGenericArguments().LastOrDefault();
+            var toListExpression = Expression.Call(typeof(Enumerable), "ToList",
+                                              new[] { outGenericType }, listExpression);
+
+            return toListExpression;
         }
 
         public static Expression ParseProperty(Boolean linqToSql, Expression right, Type modelPropertyType, Type viewModelPropertyType, ViewMappingHelper propAttrHelper, int depth, Object filters, Boolean returnEntityExpression = false)
@@ -279,19 +295,31 @@ namespace Joe.Map
             else
             {
                 var resourceType = propAttrHelper.ViewMapping.MapFunctionType ?? propAttrHelper.PropInfo.DeclaringType;
-                var expressionBody = ((LambdaExpression)resourceType.GetMethod(propAttrHelper.ViewMapping.MapFunction).Invoke(null, new Object[] { linqToSql })).Body;
-                var expression = PredicateRewriter.Rewrite(expressionBody, (ParameterExpression)right);
+                var returnExpression = ((LambdaExpression)resourceType.GetMethod(propAttrHelper.ViewMapping.MapFunction).Invoke(null, new Object[] { linqToSql, filters }));
 
-                if (expression.Type.ImplementsIEnumerable())
+                if (returnExpression != null)
                 {
-                    var genericType = expression.Type.GetGenericArguments().FirstOrDefault();
-                    if (genericType != null)
-                        expression = FilterBuilder.BuildWhereExpressions(expression, genericType, propAttrHelper.ViewMapping.Where, linqToSql, false, filters);
+                    Expression expression = null;
+                    if (right is ParameterExpression)
+                        expression = PredicateRewriter.Rewrite(returnExpression.Body, (ParameterExpression)right);
+                    else if (right is MemberExpression)
+                        expression = PredicateRewriter.Rewrite(returnExpression.Body, (MemberExpression)right);
+                    else
+                        return null;
+
+                    if (expression.Type.ImplementsIEnumerable())
+                    {
+                        var genericType = expression.Type.GetGenericArguments().FirstOrDefault();
+                        if (genericType != null)
+                            expression = FilterBuilder.BuildWhereExpressions(expression, genericType, propAttrHelper.ViewMapping.Where, linqToSql, false, filters);
+                    }
+
+                    return expression;
                 }
 
-                return expression;
-
+                return null;
             }
+
         }
 
         internal static Expression Parse(Boolean linqToSql, Expression right, Type modelPropertyType, Type viewModelPropertyType, Type destinationPropertyType, Queue<String> evalQueue, int depth, Object filters, Boolean returnEntityExpression = false, Boolean nested = false, Boolean hasTransformAttr = false, ViewMappingHelper propAttrHelper = null)
@@ -300,6 +328,7 @@ namespace Joe.Map
             var count = 0;
             var mapOperations = MapOperater.GetMapOperations(evalString);
             var inExpression = right;
+            var modelType = modelPropertyType;
 
             foreach (var mapOperation in mapOperations)
             {
@@ -350,7 +379,7 @@ namespace Joe.Map
                                 if (propAttrHelper.HasModelWhere)
                                     right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
                                 rightsTree.Add(right);
-                                right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression, !propAttrHelper.HasLinqFunction);
+                                right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression, !propAttrHelper.CanSelect);
 
                                 //This is need to be executed becasue it will be missed later
                                 if (propAttrHelper.HasLinqFunction)
@@ -379,7 +408,7 @@ namespace Joe.Map
                                 if (propAttrHelper.HasModelWhere)
                                     right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
                                 rightsTree.Add(right);
-                                right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression, !propAttrHelper.HasLinqFunction);
+                                right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression, !propAttrHelper.CanSelect);
                                 hasSelect = true;
                             }
                             //else if (!returnEntityExpression)
@@ -471,6 +500,9 @@ namespace Joe.Map
                         rightsTree.Add(right);
                         right = Expression.Convert(right, destinationPropertyType);
                     }
+
+                    if (right.Type.ImplementsIEnumerable() && !returnEntityExpression)
+                        right = ToList(right);
                 }
 
                 //Null Check
@@ -554,7 +586,7 @@ namespace Joe.Map
                                 //convert and concat
                                 right = Expression.Convert(right, typeof(Decimal?));
                                 if (linqToSql)
-                                    right = Expression.Call(StringConvertMethod, right);
+                                    right = Expression.Call(StringConvertMethod(modelType), right);
                                 else
                                     right = Expression.Call(convertToString, right, Expression.Constant(typeof(String)));
                                 right = Expression.Call(right, trimMethodInfo);
@@ -565,7 +597,7 @@ namespace Joe.Map
                                 //convert and concat
                                 Expression tempexpression = Expression.Convert(inExpression, typeof(Decimal?));
                                 if (linqToSql)
-                                    tempexpression = Expression.Call(StringConvertMethod, tempexpression);
+                                    tempexpression = Expression.Call(StringConvertMethod(modelType), tempexpression);
                                 else
                                     tempexpression = Expression.Call(convertToString, tempexpression, Expression.Constant(typeof(String)));
                                 tempexpression = Expression.Call(tempexpression, trimMethodInfo);
