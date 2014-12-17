@@ -76,6 +76,11 @@ namespace Joe.Map
         /// If Not Specified ViewModel Property Type is Used i.e. Static Function contained within ViewModel
         /// </summary>
         public Type MapFunctionType { get; set; }
+        /// <summary>
+        /// Set to true to remove items in from entity list if not in view list
+        /// else items that are not in view list will be left alone
+        /// </summary>
+        public bool DeleteIfNotInList { get; set; }
 
         public ViewMappingAttribute()
         {

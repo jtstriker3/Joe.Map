@@ -418,19 +418,41 @@ namespace Joe.MapBack
                             switch (propAttr.HowToHandleCollections)
                             {
                                 case CollectionHandleType.ParentCollection:
-                                    ParentCollectionHandleType(modelEnumerable, model);
+                                    InvokeRemoveFromParentCollection(modelEnumerable, model);
                                     break;
                                 case CollectionHandleType.Context:
                                     ContextDeletion(context, model);
                                     break;
                                 case CollectionHandleType.Both:
-                                    ParentCollectionHandleType(modelEnumerable, model);
+                                    InvokeRemoveFromParentCollection(modelEnumerable, model);
                                     ContextDeletion(context, model);
                                     break;
                             }
                         }
 
                     }
+                }
+            }
+
+            if (propAttr.DeleteIfNotInList)
+            {
+                foreach (var model in immutableModelList)
+                {
+                    var vm = valueDistinct.WhereModel(model);
+                    if(vm == null)
+                        switch (propAttr.HowToHandleCollections)
+                        {
+                            case CollectionHandleType.ParentCollection:
+                                InvokeRemoveFromParentCollection(modelEnumerable, model);
+                                break;
+                            case CollectionHandleType.Context:
+                                ContextDeletion(context, model);
+                                break;
+                            case CollectionHandleType.Both:
+                                InvokeRemoveFromParentCollection(modelEnumerable, model);
+                                ContextDeletion(context, model);
+                                break;
+                        }
                 }
             }
 
@@ -464,7 +486,7 @@ namespace Joe.MapBack
             }
         }
 
-        private static void ParentCollectionHandleType(IEnumerable modelEnumerable, object model)
+        private static void InvokeRemoveFromParentCollection(IEnumerable modelEnumerable, object model)
         {
             try
             {
