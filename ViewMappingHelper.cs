@@ -13,17 +13,23 @@ namespace Joe.Map
         Type Model { get; set; }
         public PropertyInfo PropInfo { get; set; }
         private ViewMappingAttribute _attr = null;
+        private IEnumerable<ViewFilterAttribute> ViewFilters { get; set; }
         //private static IDictionary<String, String> _propInfoCache = new Dictionary<String, String>();
 
         public ViewMappingHelper(PropertyInfo info, Type model)
         {
             Model = model;
             PropInfo = info;
+            if (info.PropertyType.IsGenericType)
+                ViewFilters = info.PropertyType.GetGenericArguments().First().GetCustomAttributes(typeof(ViewFilterAttribute), true).Cast<ViewFilterAttribute>();
+            else
+                ViewFilters = new List<ViewFilterAttribute>();
         }
 
         public ViewMappingHelper(ViewMappingAttribute attribute)
         {
             _attr = attribute;
+            ViewFilters = new List<ViewFilterAttribute>();
         }
 
         public ViewMappingAttribute ViewMapping
@@ -110,18 +116,19 @@ namespace Joe.Map
             }
         }
 
-        public Boolean HasModelWhere {
+        public Boolean HasModelWhere
+        {
             get
             {
-                return this.ViewMapping.ModelWhere != null;
+                return this.ViewMapping.ModelWhere != null || this.ViewFilters.Where(vf => vf.ModelWhere != null).Count() > 0;
             }
         }
-        
+
         public Boolean HasWhere
         {
             get
             {
-                return this.ViewMapping.Where != null;
+                return this.ViewMapping.Where != null || this.ViewFilters.Where(vf => vf.Where != null).Count() > 0;
             }
         }
 
@@ -172,6 +179,36 @@ namespace Joe.Map
                     return last;
 
             }
+        }
+
+        public String GetModelWhere()
+        {
+            var viewFitlerString = String.Join(":and:", this.ViewFilters.Select(vf => vf.ModelWhere));
+
+            if (viewFitlerString == String.Empty)
+                viewFitlerString = null;
+
+            if (viewFitlerString != null && this.ViewMapping.ModelWhere != null)
+                return this.ViewMapping.ModelWhere + ":and:" + viewFitlerString;
+            else if (viewFitlerString != null && this.ViewMapping.ModelWhere == null)
+                return viewFitlerString;
+
+            return this.ViewMapping.ModelWhere;
+        }
+
+        public String GetWhere()
+        {
+            var viewFitlerString = String.Join(":and:", this.ViewFilters.Select(vf => vf.Where));
+
+            if (viewFitlerString == String.Empty)
+                viewFitlerString = null;
+
+            if (viewFitlerString != null && this.ViewMapping.Where != null)
+                return this.ViewMapping.Where + ":and:" + viewFitlerString;
+            else if (viewFitlerString != null && this.ViewMapping.Where == null)
+                return viewFitlerString;
+
+            return this.ViewMapping.Where;
         }
 
         private Boolean IsEntityKey()

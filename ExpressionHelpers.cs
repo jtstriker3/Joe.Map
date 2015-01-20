@@ -311,7 +311,7 @@ namespace Joe.Map
                     {
                         var genericType = expression.Type.GetGenericArguments().FirstOrDefault();
                         if (genericType != null)
-                            expression = FilterBuilder.BuildWhereExpressions(expression, genericType, propAttrHelper.ViewMapping.Where, linqToSql, false, filters);
+                            expression = FilterBuilder.BuildWhereExpressions(expression, genericType, propAttrHelper.GetWhere(), linqToSql, false, filters);
                     }
 
                     return expression;
@@ -375,9 +375,9 @@ namespace Joe.Map
                                     outType = nestExpression.Type;
                                 }
                                 if (propAttrHelper != null && propAttrHelper.HasLinqFunction && viewModelPropertyType.IsSimpleType())
-                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, true, filters);
+                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.GetWhere(), linqToSql, true, filters);
                                 if (propAttrHelper.HasModelWhere)
-                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
+                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.GetModelWhere(), linqToSql, true, filters);
                                 rightsTree.Add(right);
                                 right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression, !propAttrHelper.CanSelect);
 
@@ -404,9 +404,9 @@ namespace Joe.Map
                                 nestExpression = Expression.MemberInit(Expression.New(viewModelPropertyType), block.ToArray());
                                 outType = nestExpression.Type;
                                 if (propAttrHelper != null && propAttrHelper.HasLinqFunction && viewModelPropertyType.IsSimpleType())
-                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, true, filters);
+                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.GetWhere(), linqToSql, true, filters);
                                 if (propAttrHelper.HasModelWhere)
-                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
+                                    right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.GetModelWhere(), linqToSql, true, filters);
                                 rightsTree.Add(right);
                                 right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression, !propAttrHelper.CanSelect);
                                 hasSelect = true;
@@ -417,7 +417,7 @@ namespace Joe.Map
                             //    if (propAttrHelper != null && propAttrHelper.HasLinqFunction && viewModelPropertyType.IsSimpleType())
                             //        right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.Where, linqToSql, true, filters);
                             //    if (propAttrHelper.HasModelWhere)
-                            //        right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.ViewMapping.ModelWhere, linqToSql, true, filters);
+                            //        right = FilterBuilder.BuildWhereExpressions(right, genericPropertyType, propAttrHelper.GetModelWhere(), linqToSql, true, filters);
                             //    rightsTree.Add(right);
                             //    right = Select(genericPropertyType, outType, right, nestExpression, parameterExpression);
                             //    hasSelect = true;
