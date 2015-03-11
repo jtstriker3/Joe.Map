@@ -10,6 +10,8 @@ namespace Joe.Map
 {
     public class ViewMappingHelper
     {
+        public readonly string _key = "6a14c3fb-cc65-4030-b675-02f45c2a9986-Property_Cache";
+
         Type Model { get; set; }
         public PropertyInfo PropInfo { get; set; }
         private ViewMappingAttribute _attr = null;
@@ -227,25 +229,25 @@ namespace Joe.Map
 
                 if (_modelPropertyName == null && Model != null)
                 {
-                    var key = Model.FullName + PropInfo.Name;
+                    //var key = Model.FullName.GetHashCode() + "_" + Model.Name + PropInfo.Name;
 
-                    Delegate getPropInfo = (Func<String>)(() =>
+                    Delegate getPropInfo = (Func<Type, String, String>)((Type model, String propertyName) =>
                     {
-                        if (Model.GetProperty(PropInfo.Name) != null)
-                            return PropInfo.Name;
+                        if (model.GetProperty(propertyName) != null)
+                            return propertyName;
                         else
-                            for (int i = 1; i < PropInfo.Name.Length; i++)
+                            for (int i = 1; i < propertyName.Length; i++)
                             {
-                                var infoName = PropInfo.Name;
+                                var infoName = propertyName;
                                 infoName = infoName.Insert(i, ".");
-                                if (ReflectionHelper.TryGetEvalPropertyInfo(Model, infoName) != null)
+                                if (ReflectionHelper.TryGetEvalPropertyInfo(model, infoName) != null)
                                     return infoName;
                             }
 
                         return null;
                     });
 
-                    _modelPropertyName = (String)Joe.Caching.Cache.Instance.GetOrAdd(key, TimeSpan.MaxValue, getPropInfo);
+                    _modelPropertyName = (String)Joe.Caching.Cache.Instance.GetOrAdd(_key, TimeSpan.MaxValue, getPropInfo, Model, PropInfo.Name);
 
 
                 }

@@ -524,8 +524,14 @@ namespace Joe.Map
                                     var listType = typeof(List<>).MakeGenericType(generticType);
                                     if (!returnEntityExpression)
                                     {
-                                        nullExpression = Expression.Convert(Expression.New(listType), destinationPropertyType);
-                                        right = Expression.Convert(right, destinationPropertyType);
+
+                                        if (right.Type.ImplementsIEnumerable() && typeof(string) != right.Type)
+                                        {
+                                            nullExpression = Expression.Convert(Expression.New(listType), destinationPropertyType);
+                                            right = Expression.Convert(right, destinationPropertyType);
+                                        }
+                                        else
+                                            nullExpression = Expression.Convert(Expression.Default(right.Type), right.Type);
                                     }
                                     else
                                     {
@@ -537,7 +543,7 @@ namespace Joe.Map
                                 else
                                     nullExpression = Expression.Default(destinationPropertyType);
 
-                                if (nullExpression.Type != right.Type && !returnEntityExpression)
+                                if (nullExpression.Type != right.Type && !returnEntityExpression && (destinationPropertyType.ImplementsIEnumerable() ? right.Type.ImplementsIEnumerable() && right.Type != typeof(String) : false))
                                     right = Expression.Convert(right, nullExpression.Type);
 
                                 try
