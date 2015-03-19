@@ -101,6 +101,7 @@ namespace Joe.MapBack
         where TEntity : class
     {
         TEntity Add(TEntity entity);
+        IEnumerable<TEntity> AddRange(IEnumerable<TEntity> entities);
         //
         // Summary:
         //     Attaches the given entity to the context underlying the set. That is, the

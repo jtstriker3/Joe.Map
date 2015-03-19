@@ -367,7 +367,7 @@ namespace Joe.MapBack
 
                     if (included)
                     {
-                        Type genericListmodelType =
+                        Type genericListmodelType = propAttr.OfType ??
                           modelEnumerable.GetType().GetGenericArguments().Single();
 
                         if (!genericListmodelType.IsAbstract)
@@ -439,7 +439,7 @@ namespace Joe.MapBack
                 foreach (var model in immutableModelList)
                 {
                     var vm = valueDistinct.WhereModel(model);
-                    if(vm == null)
+                    if (vm == null)
                         switch (propAttr.HowToHandleCollections)
                         {
                             case CollectionHandleType.ParentCollection:

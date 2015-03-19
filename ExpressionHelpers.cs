@@ -390,7 +390,7 @@ namespace Joe.Map
                         }
                         else
                         {
-                            if (propAttrHelper != null && propAttrHelper.HasOfType)
+                            if (propAttrHelper != null && propAttrHelper.HasOfType && !returnEntityExpression)
                             {
                                 right = BuildOfType(right, propAttrHelper);
                                 genericPropertyType = propAttrHelper.GetOfType();
