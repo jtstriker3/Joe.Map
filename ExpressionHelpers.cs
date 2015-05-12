@@ -356,7 +356,7 @@ namespace Joe.Map
                         Expression nestExpression = null;
                         if (evalQueue.Count > 0)
                         {
-                            nestExpression = Parse(linqToSql, parameterExpression, genericPropertyType, viewModelPropertyType, destinationPropertyType, evalQueue, depth, filters, returnEntityExpression, true, hasTransformAttr, propAttrHelper);
+                            nestExpression = Parse(linqToSql, parameterExpression, genericPropertyType, viewModelPropertyType, destinationPropertyType, evalQueue, depth + 1, filters, returnEntityExpression, true, hasTransformAttr, propAttrHelper);
                             if (nestExpression.Type.ImplementsIEnumerable())
                             {
                                 rightsTree.Add(right);

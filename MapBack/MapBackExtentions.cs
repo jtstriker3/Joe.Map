@@ -203,25 +203,32 @@ namespace Joe.MapBack
                             if (value != null)
                             {
                                 var genericType = propInfo.PropertyType.GetGenericArguments().Single();
-                                var modelType = model.GetType();
-                                var viewModelType = viewModel.GetType();
-                                var parameterExpression = Expression.Parameter(modelType, modelType.Name.ToLower());
-                                var selectExpression = ExpressionHelpers.ParseProperty(false, parameterExpression, modelType, viewModelType, attrHelper, 0, null, true);
-                                var modelEnumerable = Expression.Lambda(selectExpression, parameterExpression).Compile().DynamicInvoke(model) as IEnumerable;
-                                var modelEnumerableGenericType = modelEnumerable.GetType().GetGenericArguments().Single();
-                                if (modelEnumerable != null)
+                                if (!genericType.IsSimpleType())
                                 {
-                                    if (!attrHelper.HasGroupBy)
+                                    var modelType = model.GetType();
+                                    var viewModelType = viewModel.GetType();
+                                    var parameterExpression = Expression.Parameter(modelType, modelType.Name.ToLower());
+                                    var selectExpression = ExpressionHelpers.ParseProperty(false, parameterExpression, modelType, viewModelType, attrHelper, 0, null, true);
+                                    var modelEnumerable = Expression.Lambda(selectExpression, parameterExpression).Compile().DynamicInvoke(model) as IEnumerable;
+                                    var modelEnumerableGenericType = modelEnumerable.GetType().GetGenericArguments().Single();
+                                    if (modelEnumerable != null)
                                     {
-                                        CompareList(modelEnumerable, (IEnumerable)value, context, propAttr, genericType, modelEnumerableGenericType);
-                                    }
-                                    else
-                                    {
-                                        foreach (var group in (IEnumerable)value)
+                                        if (!attrHelper.HasGroupBy)
                                         {
-                                            CompareList(modelEnumerable, (IEnumerable)group, context, propAttr, genericType, modelEnumerableGenericType);
+                                            CompareList(modelEnumerable, (IEnumerable)value, context, propAttr, genericType, modelEnumerableGenericType);
+                                        }
+                                        else
+                                        {
+                                            foreach (var group in (IEnumerable)value)
+                                            {
+                                                CompareList(modelEnumerable, (IEnumerable)group, context, propAttr, genericType, modelEnumerableGenericType);
+                                            }
                                         }
                                     }
+                                }
+                                else
+                                {
+                                    ReflectionHelper.SetEvalProperty(model, columnProperty, value);
                                 }
                             }
                         }
