@@ -459,8 +459,15 @@ namespace Joe.MapBack
             {
                 foreach (var model in immutableModelList)
                 {
-                    var vm = valueDistinct.WhereModel(model);
-                    if (vm == null)
+                    bool hasVm = false;
+                    if (viewModelType.IsSimpleType())
+                    {
+                        var modelIDs = String.Join(",", model.GetEntityIDs().ToArray());
+                        hasVm = valueDistinct.Contains(modelIDs);
+                    }
+                    else
+                        hasVm = valueDistinct.WhereModel(model) != null;
+                    if (!hasVm)
                         switch (propAttr.HowToHandleCollections)
                         {
                             case CollectionHandleType.ParentCollection:
@@ -589,23 +596,49 @@ namespace Joe.MapBack
 
             public bool Equals(T x, T y)
             {
-                var xIDs = x.GetModelIDs(ViewModelType);
-                var yIDs = y.GetModelIDs(ViewModelType);
-                foreach (var key in xIDs)
-                    if (!yIDs.Contains(key))
-                        return false;
+                if (ViewModelType.IsSimpleType())
+                {
+                    var xIDs = x.GetEntityIDs();
+                    var yIDs = y.GetEntityIDs();
 
-                return true;
+                    foreach (var key in xIDs)
+                        if (!yIDs.Contains(key))
+                            return false;
+
+                    return true;
+                }
+                else
+                {
+                    var xIDs = x.GetModelIDs(ViewModelType);
+                    var yIDs = y.GetModelIDs(ViewModelType);
+                    foreach (var key in xIDs)
+                        if (!yIDs.Contains(key))
+                            return false;
+
+                    return true;
+                }
             }
 
             public int GetHashCode(T obj)
             {
-                int hash = 0;
-                foreach (var id in obj.GetModelIDs(ViewModelType))
+                if (ViewModelType.IsSimpleType())
                 {
-                    hash = hash + id.GetHashCode();
+                    int hash = 0;
+                    foreach (var id in obj.GetEntityIDs())
+                    {
+                        hash = hash + id.GetHashCode();
+                    }
+                    return hash;
                 }
-                return hash;
+                else
+                {
+                    int hash = 0;
+                    foreach (var id in obj.GetModelIDs(ViewModelType))
+                    {
+                        hash = hash + id.GetHashCode();
+                    }
+                    return hash;
+                }
             }
         }
 

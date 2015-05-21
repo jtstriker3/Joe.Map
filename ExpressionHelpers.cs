@@ -874,6 +874,18 @@ namespace Joe.Map
                     || modelType.Name.ToLower() + "id" == p.Name.ToLower());
         }
 
+        internal static IEnumerable<object> GetEntityIDs(this object model)
+        {
+            var modelType = model.GetType();
+            var keyProperties = modelType.GetProperties()
+                 .Where(p =>
+                     p.GetCustomAttributes(true).Any(a => a is KeyAttribute)
+                     || p.Name.ToLower() == "id"
+                     || modelType.Name.ToLower() + "id" == p.Name.ToLower());
+
+            return keyProperties.Select(p => p.GetValue(model, null));
+        }
+
         public static int NewKey<TModel, TViewModel>(this IQueryable<TModel> list)
         {
             Type model = list.GetType().GetGenericArguments()[0];
