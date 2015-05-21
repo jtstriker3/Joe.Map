@@ -203,26 +203,24 @@ namespace Joe.MapBack
                             if (value != null)
                             {
                                 var genericType = propInfo.PropertyType.GetGenericArguments().Single();
-                                if (!genericType.IsSimpleType())
+
+                                var modelType = model.GetType();
+                                var viewModelType = viewModel.GetType();
+                                var parameterExpression = Expression.Parameter(modelType, modelType.Name.ToLower());
+                                var selectExpression = ExpressionHelpers.ParseProperty(false, parameterExpression, modelType, viewModelType, attrHelper, 0, null, true);
+                                var modelEnumerable = Expression.Lambda(selectExpression, parameterExpression).Compile().DynamicInvoke(model) as IEnumerable;
+                                var modelEnumerableGenericType = modelEnumerable.GetType().GetGenericArguments().Single();
+                                if (modelEnumerable != null && !modelEnumerableGenericType.IsSimpleType())
                                 {
-                                    var modelType = model.GetType();
-                                    var viewModelType = viewModel.GetType();
-                                    var parameterExpression = Expression.Parameter(modelType, modelType.Name.ToLower());
-                                    var selectExpression = ExpressionHelpers.ParseProperty(false, parameterExpression, modelType, viewModelType, attrHelper, 0, null, true);
-                                    var modelEnumerable = Expression.Lambda(selectExpression, parameterExpression).Compile().DynamicInvoke(model) as IEnumerable;
-                                    var modelEnumerableGenericType = modelEnumerable.GetType().GetGenericArguments().Single();
-                                    if (modelEnumerable != null)
+                                    if (!attrHelper.HasGroupBy)
                                     {
-                                        if (!attrHelper.HasGroupBy)
+                                        CompareList(modelEnumerable, (IEnumerable)value, context, propAttr, genericType, modelEnumerableGenericType);
+                                    }
+                                    else
+                                    {
+                                        foreach (var group in (IEnumerable)value)
                                         {
-                                            CompareList(modelEnumerable, (IEnumerable)value, context, propAttr, genericType, modelEnumerableGenericType);
-                                        }
-                                        else
-                                        {
-                                            foreach (var group in (IEnumerable)value)
-                                            {
-                                                CompareList(modelEnumerable, (IEnumerable)group, context, propAttr, genericType, modelEnumerableGenericType);
-                                            }
+                                            CompareList(modelEnumerable, (IEnumerable)group, context, propAttr, genericType, modelEnumerableGenericType);
                                         }
                                     }
                                 }
@@ -230,6 +228,7 @@ namespace Joe.MapBack
                                 {
                                     ReflectionHelper.SetEvalProperty(model, columnProperty, value);
                                 }
+
                             }
                         }
                     }
@@ -370,20 +369,28 @@ namespace Joe.MapBack
                     if (includedInfo != null && includedInfo.PropertyType == typeof(Boolean))
                         included = (Boolean)includedInfo.GetValue(view, null);
 
-                    var model = immutableModelList.WhereVM(view, modelType);
+                    object model = null;
+                    //assume view is list of ids
+                    if (viewModelType.IsSimpleType())
+                        if (viewModelType == typeof(String))
+                            model = immutableModelList.Find(modelType, ((String)view).Split(','));
+                        else
+                            model = immutableModelList.Find(modelType, view);
+                    else
+                        model = immutableModelList.WhereVM(view, modelType);
 
                     if (included)
                     {
-                        Type genericListmodelType = propAttr.OfType ??
-                          modelEnumerable.GetType().GetGenericArguments().Single();
+                        //Type genericListmodelType = propAttr.OfType ??
+                        //  modelEnumerable.GetType().GetGenericArguments().Single();
 
-                        if (!genericListmodelType.IsAbstract)
+                        if (!modelType.IsAbstract)
                         {
                             Object defaultFocusItem = null;
                             if (context != null)
-                                defaultFocusItem = context.GetIPersistenceSet(genericListmodelType).InvokeCreate();
+                                defaultFocusItem = context.GetIPersistenceSet(modelType).InvokeCreate();
                             else
-                                defaultFocusItem = Activator.CreateInstance(genericListmodelType);
+                                defaultFocusItem = Activator.CreateInstance(modelType);
 
                             if (model.GetIDs().Equals(defaultFocusItem.GetIDs()))
                                 model = null;
@@ -395,7 +402,14 @@ namespace Joe.MapBack
                                 {
                                     if (propAttr.HowToHandleCollections == CollectionHandleType.ParentCollection)
                                     {
-                                        model = context.GetGenericQueryable(genericListmodelType).WhereVM(view, modelType);
+                                        if (viewModelType.IsSimpleType())
+                                            if (viewModelType == typeof(String))
+                                                model = context.GetGenericQueryable(modelType).Find(modelType, ((String)view).Split(','));
+                                            else
+                                                model = context.GetGenericQueryable(modelType).Find(modelType, view);
+                                        else
+                                            model = context.GetGenericQueryable(modelType).WhereVM(view, modelType);
+
                                         if (model == null)
                                         {
                                             model = defaultFocusItem;
@@ -522,13 +536,20 @@ namespace Joe.MapBack
 
             public bool Equals(T x, T y)
             {
-                var xIDs = x.GetIDs();
-                var yIDs = y.GetIDs();
-                foreach (var key in xIDs)
+                if (x.GetType().IsSimpleType())
                 {
-                    var defaultValue = key.GetType().GetDefualtValue();
-                    if (!yIDs.Contains(key) || key.Equals(defaultValue))
-                        return false;
+                    return x.Equals(y);
+                }
+                else
+                {
+                    var xIDs = x.GetIDs();
+                    var yIDs = y.GetIDs();
+                    foreach (var key in xIDs)
+                    {
+                        var defaultValue = key.GetType().GetDefualtValue();
+                        if (!yIDs.Contains(key) || key.Equals(defaultValue))
+                            return false;
+                    }
                 }
 
                 return true;
@@ -536,19 +557,24 @@ namespace Joe.MapBack
 
             public int GetHashCode(T obj)
             {
-                int hash = 0;
-                foreach (var id in obj.GetIDs())
+                if (obj.GetType().IsSimpleType())
+                    return obj.GetHashCode();
+                else
                 {
-                    var defaultValue = id.GetType().GetDefualtValue();
+                    int hash = 0;
+                    foreach (var id in obj.GetIDs())
+                    {
+                        var defaultValue = id.GetType().GetDefualtValue();
 
-                    if (id != null)
-                        if (!id.Equals(defaultValue))
-                            hash = hash + id.GetHashCode();
-                        else
-                            hash += DateTime.Now.GetHashCode();
+                        if (id != null)
+                            if (!id.Equals(defaultValue))
+                                hash = hash + id.GetHashCode();
+                            else
+                                hash += DateTime.Now.GetHashCode();
 
+                    }
+                    return hash;
                 }
-                return hash;
             }
         }
 

@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -829,6 +830,48 @@ namespace Joe.Map
 
             Expression<Func<Object, Boolean>> lambda = (Expression<Func<Object, Boolean>>)Expression.Lambda(test, new ParameterExpression[] { viewModelEx });
             return list.Cast<Object>().AsQueryable().Where<Object>(lambda).SingleOrDefault();
+        }
+
+        public static object Find(this IEnumerable list, Type modelType, params object[] keys)
+        {
+            var propertyKeys = GetEntityID(modelType);
+            Expression test = null;
+            ParameterExpression parameter = Expression.Parameter(modelType);
+            var count = 0;
+            foreach (var key in propertyKeys)
+            {
+
+                Expression right = null;
+
+                if (right == null)
+                    right = Expression.Property(parameter, key);
+
+                var convertedKey = System.Convert.ChangeType(keys[count], key.PropertyType);
+
+                if (test == null)
+                    test = Expression.Equal(right, Expression.Constant(convertedKey, key.PropertyType));
+                else
+                    test = Expression.And(test, Expression.Equal(right, Expression.Constant(convertedKey, key.PropertyType)));
+                count++;
+            }
+
+            LambdaExpression lambda = Expression.Lambda(test, new ParameterExpression[] { parameter });
+            Expression listConstant = Expression.Constant(list);
+            listConstant = Expression.Call(typeof(Queryable), "AsQueryable", new Type[] { }, listConstant);
+            listConstant = Expression.Call(typeof(Queryable), "Cast", new[] { modelType }, listConstant);
+            Expression whereExpression = Expression.Call(typeof(Queryable), "AsQueryable", new[] { modelType }, listConstant);
+            whereExpression = Expression.Call(typeof(Queryable), "SingleOrDefault", new[] { modelType }, whereExpression, lambda);
+
+            return Expression.Lambda(whereExpression).Compile().DynamicInvoke();
+        }
+
+        private static IEnumerable<PropertyInfo> GetEntityID(Type modelType)
+        {
+            return modelType.GetProperties()
+                .Where(p =>
+                    p.GetCustomAttributes(true).Any(a => a is KeyAttribute)
+                    || p.Name.ToLower() == "id"
+                    || modelType.Name.ToLower() + "id" == p.Name.ToLower());
         }
 
         public static int NewKey<TModel, TViewModel>(this IQueryable<TModel> list)
