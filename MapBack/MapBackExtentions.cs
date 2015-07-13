@@ -209,7 +209,7 @@ namespace Joe.MapBack
                                 var parameterExpression = Expression.Parameter(modelType, modelType.Name.ToLower());
                                 var selectExpression = ExpressionHelpers.ParseProperty(false, parameterExpression, modelType, viewModelType, attrHelper, 0, null, true);
                                 var modelEnumerable = Expression.Lambda(selectExpression, parameterExpression).Compile().DynamicInvoke(model) as IEnumerable;
-                                var modelEnumerableGenericType = modelEnumerable.GetType().GetGenericArguments().Single();
+                                var modelEnumerableGenericType = propAttr.OfType ?? modelEnumerable.GetType().GetGenericArguments().Single();
                                 if (modelEnumerable != null && !modelEnumerableGenericType.IsSimpleType())
                                 {
                                     if (!attrHelper.HasGroupBy)
@@ -459,28 +459,32 @@ namespace Joe.MapBack
             {
                 foreach (var model in immutableModelList)
                 {
-                    bool hasVm = false;
-                    if (viewModelType.IsSimpleType())
+                    if (propAttr.OfType == null || propAttr.OfType.IsAssignableFrom(model.GetType()))
                     {
-                        var modelIDs = String.Join(",", model.GetEntityIDs().ToArray());
-                        hasVm = valueDistinct.Contains(modelIDs);
-                    }
-                    else
-                        hasVm = valueDistinct.WhereModel(model) != null;
-                    if (!hasVm)
-                        switch (propAttr.HowToHandleCollections)
+                        bool hasVm = false;
+                        if (viewModelType.IsSimpleType())
                         {
-                            case CollectionHandleType.ParentCollection:
-                                InvokeRemoveFromParentCollection(modelEnumerable, model);
-                                break;
-                            case CollectionHandleType.Context:
-                                ContextDeletion(context, model);
-                                break;
-                            case CollectionHandleType.Both:
-                                InvokeRemoveFromParentCollection(modelEnumerable, model);
-                                ContextDeletion(context, model);
-                                break;
+                            var modelIDs = String.Join(",", model.GetEntityIDs().ToArray());
+                            hasVm = valueDistinct.Contains(modelIDs);
                         }
+                        else
+                            hasVm = valueDistinct.WhereModel(model) != null;
+
+                        if (!hasVm)
+                            switch (propAttr.HowToHandleCollections)
+                            {
+                                case CollectionHandleType.ParentCollection:
+                                    InvokeRemoveFromParentCollection(modelEnumerable, model);
+                                    break;
+                                case CollectionHandleType.Context:
+                                    ContextDeletion(context, model);
+                                    break;
+                                case CollectionHandleType.Both:
+                                    InvokeRemoveFromParentCollection(modelEnumerable, model);
+                                    ContextDeletion(context, model);
+                                    break;
+                            }
+                    }
                 }
             }
 
