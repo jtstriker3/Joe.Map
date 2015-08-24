@@ -325,6 +325,8 @@ namespace Joe.MapBack
         {
             var modelEnumerableDistinct = modelEnumerable.Cast<Object>().Distinct(new ModelCompare<Object>(viewModelType));
             var valueDistinct = ((IEnumerable)value).Cast<Object>().Distinct(ViewModelComparer<Object>.ViewModelIEqualityComparer);
+            if (propAttr.OfType != null)
+                modelEnumerableDistinct = modelEnumerableDistinct.Where(item => propAttr.OfType.IsAssignableFrom(item.GetType()));
             var immutableModelList = modelEnumerableDistinct.ToList().AsReadOnly();
             //foreach (Object model in immutableModelList)
             //{
@@ -397,7 +399,6 @@ namespace Joe.MapBack
 
                             if (model == null)
                             {
-
                                 if (context != null)
                                 {
                                     if (propAttr.HowToHandleCollections == CollectionHandleType.ParentCollection)
