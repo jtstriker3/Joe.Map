@@ -16,6 +16,11 @@ namespace Joe.Map
     public class ViewMappingAttribute : Attribute
     {
         public String ColumnPropertyName { get; set; }
+        /// <summary>
+        /// Lets you map back to a different property than mapping to
+        /// This useful for mapping a list of IDs to the a List of Objects within the Model Object
+        /// </summary>
+        public string MapBackPropertyName { get; set; }
         public Boolean Admin { get; set; }
         public Boolean ReadOnly { get; set; }
         public Boolean OrderBy { get; set; }

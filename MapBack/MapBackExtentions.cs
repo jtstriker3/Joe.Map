@@ -122,13 +122,14 @@ namespace Joe.MapBack
 
                 if (propAttr != null)
                 {
+                    var mapBackPropertyName = propAttr.MapBackPropertyName ?? propAttr.ColumnPropertyName;
                     try
                     {
                         if (!propAttr.ReadOnly && !attrHelper.HasLinqFunction)
                         {
-                            ColumnPropHelper columnPropHelper = new ColumnPropHelper(propAttr.ColumnPropertyName);
+                            ColumnPropHelper columnPropHelper = new ColumnPropHelper(mapBackPropertyName);
                             var value = propInfo.GetValue(viewModel, null);
-                            String columnProperty = columnPropHelper.IsSwitch ? columnPropHelper.GetSwitchProperty(model) : propAttr.ColumnPropertyName;
+                            String columnProperty = columnPropHelper.IsSwitch ? columnPropHelper.GetSwitchProperty(model) : mapBackPropertyName;
 
 
                             if (propInfo.PropertyType.IsClass
@@ -175,7 +176,7 @@ namespace Joe.MapBack
                     }
                     catch (Exception ex)
                     {
-                        throw new Exception(String.Format("Error Mapping Back. ViewProperty: {0} to ModelProperty: {1} where ID: {2}", propInfo.Name, propAttr.ColumnPropertyName, viewModel.GetIDs().BuildIDString()), ex);
+                        throw new Exception(String.Format("Error Mapping Back. ViewProperty: {0} to ModelProperty: {1} where ID: {2}", propInfo.Name, mapBackPropertyName, viewModel.GetIDs().BuildIDString()), ex);
                     }
                 }
 
@@ -192,13 +193,14 @@ namespace Joe.MapBack
 
                 if (propAttr != null)
                 {
+                    var mapBackPropertyName = propAttr.MapBackPropertyName ?? propAttr.ColumnPropertyName;
                     try
                     {
                         if (!propAttr.ReadOnly && !attrHelper.HasLinqFunction)
                         {
-                            ColumnPropHelper columnPropHelper = new ColumnPropHelper(propAttr.ColumnPropertyName);
+                            ColumnPropHelper columnPropHelper = new ColumnPropHelper(mapBackPropertyName);
                             var value = propInfo.GetValue(viewModel, null);
-                            String columnProperty = columnPropHelper.IsSwitch ? columnPropHelper.GetSwitchProperty(model) : propAttr.ColumnPropertyName;
+                            String columnProperty = columnPropHelper.IsSwitch ? columnPropHelper.GetSwitchProperty(model) : mapBackPropertyName;
 
                             if (value != null)
                             {
@@ -234,7 +236,7 @@ namespace Joe.MapBack
                     }
                     catch (Exception ex)
                     {
-                        throw new Exception(String.Format("Error Mapping Back. ViewProperty: {0} to ModelProperty: {1} where ID: {2}", propInfo.Name, propAttr.ColumnPropertyName, viewModel.GetIDs().BuildIDString()), ex);
+                        throw new Exception(String.Format("Error Mapping Back. ViewProperty: {0} to ModelProperty: {1} where ID: {2}", propInfo.Name, mapBackPropertyName, viewModel.GetIDs().BuildIDString()), ex);
                     }
                 }
 
@@ -466,7 +468,7 @@ namespace Joe.MapBack
                         if (viewModelType.IsSimpleType())
                         {
                             var modelIDs = String.Join(",", model.GetEntityIDs().ToArray());
-                            hasVm = valueDistinct.Contains(modelIDs);
+                            hasVm = valueDistinct.Select(id => id.ToString()).Contains(modelIDs);
                         }
                         else
                             hasVm = valueDistinct.WhereModel(model) != null;

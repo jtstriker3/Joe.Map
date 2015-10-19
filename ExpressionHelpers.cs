@@ -284,7 +284,8 @@ namespace Joe.Map
         {
             if (!propAttrHelper.HasMapFunction || returnEntityExpression == true)
             {
-                var enumerableQueue = new Queue<String>(propAttrHelper.ViewMapping.ColumnPropertyName.Split('-'));
+                var mapProperty = returnEntityExpression ? propAttrHelper.ViewMapping.MapBackPropertyName ?? propAttrHelper.ViewMapping.ColumnPropertyName : propAttrHelper.ViewMapping.ColumnPropertyName;
+                var enumerableQueue = new Queue<String>(mapProperty.Split('-'));
                 if (right == null)
                     right = Expression.Parameter(modelPropertyType, modelPropertyType.Name.ToLower());
 
