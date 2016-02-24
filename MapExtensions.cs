@@ -82,7 +82,7 @@ namespace Joe.Map
 
         public static IQueryable Map(this IEnumerable modelList, Type modelType, Type viewModelType, Object filters)
         {
-            var selectMappingExpression = ExpressionHelpers.BuildExpression(modelType, viewModelType, filters);
+            var selectMappingExpression = ExpressionHelpers.BuildExpression(modelType, viewModelType, false, filters);
             var selectExpression = Expression.Call(typeof(Enumerable), "Select", new Type[] { modelType, viewModelType }, Expression.Constant(modelList), selectMappingExpression);
             return ((IEnumerable)Expression.Lambda(selectExpression).Compile().DynamicInvoke()).AsQueryable();
         }
@@ -93,7 +93,7 @@ namespace Joe.Map
             var modelType = typeof(TModel);
             var tempList = new List<TModel>();
             tempList.Add(model);
-            var selectMappingExpression = ExpressionHelpers.BuildExpression(modelType, viewModelType, filters);
+            var selectMappingExpression = ExpressionHelpers.BuildExpression(modelType, viewModelType, false, filters);
             var selectExpression = Expression.Call(typeof(Enumerable), "Select", new Type[] { modelType, viewModelType }, Expression.Constant(tempList), selectMappingExpression);
             return ((IEnumerable)Expression.Lambda(selectExpression).Compile().DynamicInvoke()).Cast<Object>().Single();
         }
